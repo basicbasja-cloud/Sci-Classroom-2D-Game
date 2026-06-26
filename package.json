@@ -1,0 +1,12 @@
+{
+  "name": "sci-quest-2026",
+  "version": "1.0.0",
+  "description": "Science Educational Game (Sci-Quest 2026)",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}

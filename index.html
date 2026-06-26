@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sci-Classroom 2026: เกมวิทยาศาสตร์ต่อสู้บอสและผจญภัยแบบมีส่วนร่วม</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Star Background Particle Layer -->
+  <div class="stars-bg"></div>
+
+  <!-- Header Navigation -->
+  <header>
+    <div class="logo-container" onclick="window.App.showView('home-view')" style="cursor: pointer;">
+      <div class="logo-icon"></div>
+      <span class="logo-text">SCI-CLASSROOM 2026</span>
+    </div>
+    <div class="nav-links">
+      <button class="btn-neon" id="btn-nav-projector" onclick="window.App.showView('projector-view')">
+        🖥️ หน้าจอหลักฉายโปรเจกเตอร์
+      </button>
+      <button class="btn-neon btn-neon-purple" id="btn-nav-dashboard" onclick="window.App.showView('teacher-view')">
+        ⚙️ แผงจัดการคุณครู
+      </button>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       VIEW 1: LANDING PAGE (ROLE SELECT)
+       ========================================================================== -->
+  <main id="home-view" class="app-view active">
+    <h1 class="welcome-title">เกมผจญภัยวิทยาศาสตร์ห้องเรียนปฏิสัมพันธ์</h1>
+    <p class="welcome-subtitle">
+      เครื่องมือจัดกิจกรรมการเรียนรู้วิชาวิทยาศาสตร์ ป.4 - ม.3 สำหรับคุณครูฉายขึ้นหน้าจอใหญ่ (Projector) และให้นักเรียนทุกคนช่วยกันตอบคำถามวิทย์ระดับต่างๆ เพื่อผจญภัยและปราบการบุกรุกของบอส!
+    </p>
+
+    <div class="role-cards">
+      <!-- Teacher / Projector Screen -->
+      <div class="role-card student-select glass-panel" onclick="window.App.showView('projector-view')">
+        <div class="role-icon">🖥️📡</div>
+        <h2 class="role-name">เข้าสู่หน้าจอเกมหลัก (Projector)</h2>
+        <p class="role-desc">
+          เปิดแผนที่ด่าน Candy Crush, ฉากต่อสู้จำลอง RPG, และแสดงคำถามวิทยาศาสตร์เพื่อระดมสมองเด็กๆ ช่วยกันวิเคราะห์และตอบ
+        </p>
+        <button class="btn-neon">เปิดหน้าจอเกมหลัก</button>
+      </div>
+
+      <!-- Teacher Backstage Dashboard -->
+      <div class="role-card teacher-select glass-panel" onclick="window.App.showView('teacher-view')">
+        <div class="role-icon">⚙️📝</div>
+        <h2 class="role-name">ระบบจัดการคุณครู (Backstage)</h2>
+        <p class="role-desc">
+          เปิดแผงจัดการคลังข้อสอบวิทยาศาสตร์สำหรับบอส (CRUD) และสรุปรายงานความก้าวหน้าและการเรียนรู้สะสมของห้องเรียน
+        </p>
+        <button class="btn-neon btn-neon-purple">เปิดแผงจัดการครู</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================================================
+       VIEW 2: TEACHER / PROJECTOR VIEW (CANDY CRUSH MAP & BATTLE ARENA)
+       ========================================================================== -->
+  <main id="projector-view" class="app-view">
+    <!-- Left Sidebar: Controls & Live Registers -->
+    <section class="game-sidebar glass-panel">
+      <h3 class="sidebar-section-title">⚙️ ตั้งค่าระดับความรู้</h3>
+      
+      <div class="dashboard-form-group">
+        <label for="select-student-grade">ระดับชั้นปัจจุบัน:</label>
+        <select id="select-student-grade" class="select-cyber" onchange="window.saveGradeFromProjector(this.value)">
+          <option value="p4">ประถมศึกษาปีที่ 4 (ป.4)</option>
+          <option value="p5">ประถมศึกษาปีที่ 5 (ป.5)</option>
+          <option value="p6">ประถมศึกษาปีที่ 6 (ป.6)</option>
+          <option value="m1">มัยมศึกษาปีที่ 1 (ม.1)</option>
+          <option value="m2">มัธยมศึกษาปีที่ 2 (ม.2)</option>
+          <option value="m3">มัธยมศึกษาปีที่ 3 (ม.3)</option>
+        </select>
+      </div>
+
+      <div class="dashboard-form-group" style="margin-top: 12px;">
+        <label for="select-question-subject">สาระวิชาเน้นสอนวันนี้ (หัวข้อข้อสอบ):</label>
+        <select id="select-question-subject" class="select-cyber" onchange="window.saveSubjectFromProjector(this.value)">
+          <option value="all">ทั้งหมด (สุ่มรวมทุกสาระวิชา)</option>
+          <option value="biology">ชีววิทยา (Biology)</option>
+          <option value="chemistry">เคมี (Chemistry)</option>
+          <option value="physics">ฟิสิกส์ (Physics)</option>
+          <option value="space">โลก ดาราศาสตร์ และอวกาศ (Space Science)</option>
+        </select>
+      </div>
+
+      <!-- Co-op Logs -->
+      <div class="ship-log-panel" style="margin-top: 15px;">
+        <h3 class="log-title">⚔️ บันทึกกิจกรรมห้องเรียน</h3>
+        <div class="log-list" id="ship-log-list">
+          <div class="log-item system">ระบบ: รอครูเปิดด่านผจญภัยด่าน 1 เครื่องยนต์ปฏิกรณ์ไฟฟ้า</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:auto;">
+        <button class="btn-neon btn-neon-purple" onclick="window.App.showView('teacher-view');">
+          ⚙️ แผงจัดการ & สถิติครู
+        </button>
+        <button class="btn-neon btn-neon-red" id="btn-proj-reset" onclick="window.App.resetStudentGame();">
+          🔄 ล้างสถิติห้องเรียน & รีเซ็ต
+        </button>
+        <button class="btn-neon" id="btn-proj-back-home">
+          ↩️ กลับหน้าหลัก
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Map/Battle Arena Viewport -->
+    <section class="game-viewport">
+      <div class="game-header">
+        <h2 class="game-title">หน้าจอหลักโปรเจกเตอร์ห้องเรียนวิทยาศาสตร์</h2>
+        
+        <!-- HP Status for the classroom party -->
+        <div class="score-hud">
+          <div class="hud-item">
+            <span class="hud-label">HP ปาร์ตี้ห้องเรียน:</span>
+            <span class="hud-val" id="hud-hp-val" style="color: var(--neon-red); font-weight: 800;">100/100</span>
+          </div>
+          <div class="hud-item" style="border-left: 1px solid var(--border-light); padding-left: 15px;">
+            <span class="hud-label">คะแนนห้องเรียน:</span>
+            <span class="hud-val cyan" id="hud-score-val">0</span>
+          </div>
+          <div class="hud-item" style="border-left: 1px solid var(--border-light); padding-left: 15px;">
+            <span class="hud-label">ปราบอสุรกาย:</span>
+            <span class="hud-val emerald" id="hud-correct-val">0/10</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== STAGE 0: STUDENT LEVEL SELECTION BEFORE START ==================== -->
+      <div class="glass-panel" id="rpg-level-select" style="margin: 15px; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; height: auto; min-height: 0; background: radial-gradient(circle at center, #110e2e 0%, #05050b 100%); border: 1px solid var(--border-neon); border-radius: 16px;">
+        <h2 style="font-size: 2rem; color: var(--neon-cyan); margin-bottom: 10px; font-weight: 700; text-shadow: 0 0 15px var(--neon-cyan-glow);">🚀 เลือกระดับชั้นเรียนวิทยาศาสตร์เพื่อเริ่มเกม</h2>
+        <p style="color: var(--text-primary); font-size: 1.1rem; margin-bottom: 25px; text-align: center; max-width: 600px; line-height: 1.6;">
+          กรุณาเลือกวิชาและระดับชั้นการเรียนรู้ของนักเรียนเพื่อโหลดฐานคำถามวิทยาศาสตร์ ป.4 - ม.3 และเริ่มต้นผจญภัย
+        </p>
+        
+        <div class="level-cards-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; max-width: 800px; margin-bottom: 30px;">
+          <!-- Level Cards -->
+          <div class="level-card-item glass-panel" data-grade="p4" style="padding: 15px; text-align: center; border: 2px solid var(--border-light); cursor: pointer; transition: all 0.2s ease-out; border-radius: 12px; background: rgba(0,0,0,0.3);">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🎒</div>
+            <h3 style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">ประถมศึกษาปีที่ 4</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">ป.4 (ฟิสิกส์, เคมี, ชีวะ, อวกาศ)</p>
+          </div>
+          <div class="level-card-item glass-panel" data-grade="p5" style="padding: 15px; text-align: center; border: 2px solid var(--border-light); cursor: pointer; transition: all 0.2s ease-out; border-radius: 12px; background: rgba(0,0,0,0.3);">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🧪</div>
+            <h3 style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">ประถมศึกษาปีที่ 5</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">ป.5 (สสารละลาย, พืช, แรง, เสียง)</p>
+          </div>
+          <div class="level-card-item glass-panel" data-grade="p6" style="padding: 15px; text-align: center; border: 2px solid var(--border-light); cursor: pointer; transition: all 0.2s ease-out; border-radius: 12px; background: rgba(0,0,0,0.3);">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🔭</div>
+            <h3 style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">ประถมศึกษาปีที่ 6</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">ป.6 (ร่างกาย, หินแร่, ไฟฟ้า, สุริยุปราคา)</p>
+          </div>
+          <div class="level-card-item glass-panel" data-grade="m1" style="padding: 15px; text-align: center; border: 2px solid var(--border-light); cursor: pointer; transition: all 0.2s ease-out; border-radius: 12px; background: rgba(0,0,0,0.3);">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🧬</div>
+            <h3 style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">มัธยมศึกษาปีที่ 1</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">ม.1 (เซลล์พืช, ธาตุ, ความร้อน, บรรยากาศ)</p>
+          </div>
+          <div class="level-card-item glass-panel" data-grade="m2" style="padding: 15px; text-align: center; border: 2px solid var(--border-light); cursor: pointer; transition: all 0.2s ease-out; border-radius: 12px; background: rgba(0,0,0,0.3);">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">⚡</div>
+            <h3 style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">มัธยมศึกษาปีที่ 2</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">ม.2 (ไตขับเสีย, กรดเบส, แรงเสียดทาน, แร่)</p>
+          </div>
+          <div class="level-card-item glass-panel" data-grade="m3" style="padding: 15px; text-align: center; border: 2px solid var(--border-light); cursor: pointer; transition: all 0.2s ease-out; border-radius: 12px; background: rgba(0,0,0,0.3);">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🛰️</div>
+            <h3 style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem;">มัธยมศึกษาปีที่ 3</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">ม.3 (พันธุกรรม, ปฏิกิริยาเคมี, คลื่นแสง, อวกาศ)</p>
+          </div>
+        </div>
+        
+        <button class="btn-neon" id="btn-confirm-level" style="padding: 12px 45px; font-size: 1.2rem; font-weight: bold; border-color: var(--neon-cyan); color: var(--neon-cyan); border-radius: 30px;">
+          🎮 ยืนยันระดับชั้นเรียน & เริ่มด่านผจญภัย ➔
+        </button>
+      </div>
+
+      <!-- ==================== STAGE 1: CANDY CRUSH PROGRESS NODE MAP ==================== -->
+      <div class="candy-crush-map-container" id="rpg-node-map">
+        <canvas id="rpg-node-map-canvas" class="map-canvas"></canvas>
+        <div class="nodes-grid" id="rpg-nodes-wrapper">
+          <!-- Dynamically generated nodes Path (D1 -> D2 -> D3 -> D4 -> D5) -->
+        </div>
+      </div>
+
+      <!-- ==================== STAGE 2: COLLABORATIVE BATTLE SCREEN ==================== -->
+      <div class="screen-overlay" id="rpg-battle-overlay" style="display: none; background: transparent; padding: 15px; flex: 1; min-height: 0; flex-direction: column;">
+        <div class="rpg-battle-window glass-panel" style="max-width: 100%; height: 100%; position: relative; min-height: 0; display: flex; flex-direction: column;">
+          <!-- Save & Exit Button inside battle window -->
+          <div style="position: absolute; top: 12px; right: 15px; z-index: 110;">
+            <button class="btn-neon btn-neon-purple" onclick="window.saveAndExitBattle();" style="padding: 6px 15px; font-size: 0.8rem; font-weight: bold; border-radius: 20px;">
+              ⏸️ พักรบ & บันทึกด่าน (Save & Exit)
+            </button>
+          </div>
+          
+          <div class="battle-arena">
+            <canvas class="rpg-battle-canvas" id="rpg-battle-canvas"></canvas>
+            
+            <!-- Enemy Boss Side -->
+            <div class="battle-entity enemy-entity">
+              <div class="entity-info">
+                <span class="entity-name" id="battle-enemy-name">หุ่นยนต์ไฟฟ้าเทอร์โบ</span>
+                <span class="entity-subject-tag" id="battle-enemy-subject">ฟิสิกส์ & พลังงาน</span>
+                <div class="hp-bar-outer">
+                  <div class="hp-bar-fill enemy-hp-fill" id="battle-enemy-hp" style="width: 100%;"></div>
+                </div>
+                <div class="hp-numeric" id="battle-enemy-hp-text">100/100</div>
+              </div>
+              <div class="entity-sprite-container">
+                <div class="entity-sprite" id="battle-enemy-sprite">⚡</div>
+                <div class="damage-number" id="enemy-damage-popup"></div>
+              </div>
+            </div>
+
+            <!-- Player Side -->
+            <div class="battle-entity player-entity">
+              <div class="entity-sprite-container">
+                <div class="entity-sprite" id="battle-player-sprite">🧑‍🚀</div>
+                <div class="damage-number" id="player-damage-popup"></div>
+              </div>
+              <div class="entity-info">
+                <span class="entity-name">อัศวินวิทยาศาสตร์ห้องเรียน (HP ปาร์ตี้)</span>
+                <div class="hp-bar-outer">
+                  <div class="hp-bar-fill player-hp-fill" id="battle-player-hp" style="width: 100%;"></div>
+                </div>
+                <div class="hp-numeric" id="battle-player-hp-text">100/100</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Collaborative Combat Dashboard -->
+          <div class="battle-quiz-panel" id="proj-combat-hud">
+            
+            <!-- PHASE A: VOTE RESULTS & ACTION TRIGGERS -->
+            <div id="proj-voting-panel">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="font-weight:700; border-left:3px solid var(--neon-cyan); padding-left:10px;">
+                  🗳️ นักเรียนกำลังเลือกโหวตท่าต่อสู้...
+                </h3>
+                <button class="btn-neon btn-neon-purple" id="btn-proj-lock-votes">
+                  🔒 สรุปผลโหวตโจมตี
+                </button>
+              </div>
+              
+              <!-- Live Vote Bars -->
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;" id="proj-vote-bars-wrapper">
+                <!-- Live results -->
+              </div>
+            </div>
+
+            <!-- PHASE B: ACTIVE QUIZ QUESTIONS DISPLAY -->
+            <div id="proj-quiz-panel" style="display: none;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="font-weight:700; color: var(--neon-cyan);" id="proj-quiz-topic">คำถามด่าน</h3>
+                <div id="proj-timer-container" style="font-weight:bold; font-size:1.1rem; background:rgba(0,0,0,0.5); padding: 5px 15px; border-radius:20px; border:1px solid var(--border-light);">
+                  ⏱️ เวลาเหลือ: <span id="proj-timer-val" style="color:var(--neon-red);">30s</span>
+                </div>
+              </div>
+              
+              <div class="quiz-question-box">
+                <div class="quiz-question-text" id="proj-question-text" style="font-size:1.25rem;">คำถาม...</div>
+              </div>
+
+              <!-- Options board on Projector -->
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" id="proj-options-grid">
+                <!-- Displays options but no click events (Teacher clicks next on controller) -->
+              </div>
+
+              <!-- Explanation Area and attack trigger -->
+              <div class="quiz-explanation-box" id="proj-explanation-area" style="display: none; margin-top:12px;">
+                <h4 class="explanation-title" id="proj-exp-title">วิทยาศาสตร์เบื้องหลังคำตอบ</h4>
+                <p class="explanation-text" id="proj-exp-text">คำอธิบายหลักวิทย์...</p>
+                <div class="explanation-reason" id="proj-exp-reason">เพราะวิชานี้มีความจำเป็น...</div>
+                
+                <div style="display:flex; justify-content:space-between; margin-top:10px; align-items:center;">
+                  <span style="font-weight:bold; color:var(--neon-cyan); font-size:0.95rem;" id="proj-exp-stats">สถิติห้อง: ตอบถูก --% (ผ่านการโจมตีบอส)</span>
+                  <button class="btn-neon btn-neon-emerald" id="btn-proj-next-turn" style="padding:8px 24px; font-size:0.95rem;">
+                    ดำเนินการต่อไป ➔
+                  </button>
+                </div>
+              </div>
+
+              <!-- Teacher force skip -->
+              <div style="display:flex; justify-content:flex-end; margin-top:15px;" id="proj-skip-row">
+                <button class="btn-neon btn-neon-red" id="btn-proj-force-submit" style="padding: 6px 12px; font-size: 0.8rem;">
+                  ⏱️ ข้ามข้อนี้ (บอสสวนกลับ)
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Game Over overlay (Projector Screen) -->
+      <div class="screen-overlay" id="game-over-overlay">
+        <div class="game-terminal victory-screen" style="max-width: 500px; border-color: var(--neon-red); box-shadow: 0 0 25px rgba(255,46,93,0.35);">
+          <div class="victory-icon" style="animation: none;">💀</div>
+          <h1 style="color: var(--neon-red); font-size: 2.2rem; font-weight: 800; text-shadow: 0 0 15px var(--neon-red-glow);">
+            ความล้มเหลวปาร์ตี้!
+          </h1>
+          <p style="margin: 20px 0; line-height: 1.8; color: #cbd5e1;">
+            พลังชีวิต HP ของนักเรียนในห้องเรียนหมดสิ้นลง บอสวิทยาศาสตร์ยึดเครื่องยนต์กู้ภัยได้หมดแล้ว คุณครูสามารถกดยืนยันชุบชีวิตปาร์ตี้ห้องเรียนใหม่ได้ที่จุดลงจอด
+          </p>
+          <div class="text-center">
+            <button class="btn-neon btn-neon-red" onclick="window.App.resetStudentGame(); document.getElementById('game-over-overlay').classList.remove('active');" style="padding: 10px 30px;">
+              🛡️ ชุบชีวิตพลังงาน & ท้าทายใหม่
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Victory overlay (Projector Screen) -->
+      <div class="screen-overlay" id="victory-overlay-screen">
+        <div class="game-terminal victory-screen" style="max-width: 600px; border-color: var(--neon-emerald); box-shadow: 0 0 25px rgba(0,255,102,0.35);">
+          <div class="victory-icon">👑🏆</div>
+          <h1 style="color: var(--neon-emerald); font-size: 2.2rem; font-weight: 800; text-shadow: 0 0 15px var(--neon-emerald-glow);">
+            ปราบครบถ้วน 5 ด่าน!
+          </h1>
+          <p style="margin: 20px 0; line-height: 1.8; color: #cbd5e1;">
+            ยินดีด้วยคุณครูและเพื่อนๆ นักเรียนทุกคน! การร่วมใจคิด วิเคราะห์ ตอบคำถามวิทยาศาสตร์ ปราบอสุรกายครบทั้ง 5 Node ได้ช่วยฟื้นฟูระบบนิเวศและพลังงานให้แก่สถานีอวกาศ 100% สำเร็จ ปรบมือดังๆ ให้ห้องเรียนวิทย์ของเรา!
+          </p>
+          <div style="display: flex; gap: 15px; justify-content: center; margin-top: 15px;">
+            <button class="btn-neon btn-neon-emerald" onclick="window.App.resetStudentGame(); document.getElementById('victory-overlay-screen').classList.remove('active');">
+              🔄 เริ่มด่านใหม่
+            </button>
+            <button class="btn-neon btn-neon-purple" id="btn-victory-home">
+              🏠 กลับหน้าแรก
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ==========================================================================
+       VIEW 3: STUDENT REMOTE CONTROLLER VIEW (CLIENT REMOTES)
+       ========================================================================== -->
+  <main id="student-controller-view" class="app-view">
+    <div class="game-terminal" style="width:100%; max-width:480px; margin: 30px auto; border-color:var(--neon-purple); box-shadow: 0 0 20px rgba(143,0,255,0.2);">
+      
+      <div class="terminal-header" style="border-bottom-color: rgba(143, 0, 255, 0.2);">
+        <div class="terminal-title" style="color: var(--neon-purple); font-size: 1.1rem;">
+          <span>📱</span>
+          <span>จอยรีโมตนักเรียน (Controller)</span>
+        </div>
+        <div id="remote-player-hp-badge" style="font-size:0.8rem; background:rgba(255, 46, 93, 0.15); color:var(--neon-red); border:1px solid rgba(255, 46, 93, 0.3); padding:2px 8px; border-radius:4px; display:none;">
+          HP ยาน: 100
+        </div>
+      </div>
+
+      <div class="terminal-body" style="padding: 20px;">
+        
+        <!-- PHASE 3.1: REGISTER REGISTER -->
+        <div id="rem-join-panel">
+          <h3 class="margin-bottom-sm">กรอกชื่อเล่นเพื่อเข้าร่วมห้องเรียน</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
+            เมื่อครูเปิดโปรเจกเตอร์หลักแล้ว กรอกชื่อเล่นภาษาไทย เพื่อเป็นส่วนหนึ่งของขบวนการอัศวินวิทยาศาสตร์
+          </p>
+          <div class="dashboard-form-group">
+            <input type="text" id="txt-student-nickname" class="input-cyber" placeholder="เช่น ชินจัง, น้องเนเน่" maxlength="12">
+          </div>
+          <button class="btn-neon btn-neon-purple" id="btn-join-room-submit" style="width:100%; margin-top:10px;">
+            ⚡ ลงทะเบียนเชื่อมต่อจอย
+          </button>
+        </div>
+
+        <!-- PHASE 3.2: WAITING WAITING -->
+        <div id="rem-wait-panel" style="display: none; text-align: center; padding: 40px 10px;">
+          <div style="font-size:3.5rem; animation: logo-pulse 2s infinite alternate;">📡</div>
+          <h3 class="margin-top-md" id="rem-wait-title">เชื่อมต่อจอยสำเร็จ!</h3>
+          <p id="rem-wait-student-name" style="color: var(--neon-cyan); font-weight:bold; font-size:1.1rem; margin-top:5px;"></p>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 20px; line-height:1.6;">
+            กรุณาเฝ้าดูหน้าจอยานโปรเจกเตอร์หลักด้านหน้าห้องเรียน เมื่อคุณครูทำการสแตนบายเปิดด่านสู้บอส หน้าจอนี้จะสลับแผงคำสั่งโดยอัตโนมัติ
+          </p>
+        </div>
+
+        <!-- PHASE 3.3: CHOOSE MOVE TO VOTE (POKEMON MOVE SELECTION) -->
+        <div id="rem-vote-panel" style="display: none;">
+          <h3 style="margin-bottom:8px; font-weight:700; text-align:center;">🗳️ โหวตเลือกท่าต่อสู้</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-bottom:20px;">
+            ประสานงานกับเพื่อนร่วมห้อง เลือกโหวตระดับความยากของคำถามและพลังดาเมจที่ต้องการโจมตีบอส
+          </p>
+          <div style="display:flex; flex-direction:column; gap:12px;" id="rem-vote-buttons-wrapper">
+            <!-- Buttons for Laser, EMP, Quantum, Nanobot -->
+          </div>
+          <div style="text-align:center; font-size:0.82rem; color:var(--neon-purple); font-weight:bold; margin-top:20px;" id="rem-voted-status-lbl">
+            ยังไม่ได้ทำการลงคะแนนโหวต...
+          </div>
+        </div>
+
+        <!-- PHASE 3.4: ACTIVE QUIZ ANSWERS SELECT -->
+        <div id="rem-quiz-panel" style="display: none;">
+          <h3 style="margin-bottom:5px; font-weight:700; text-align:center;">📝 ตอบคำถามช่วยพรรคพวก</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-bottom:15px;" id="rem-quiz-difficulty-tag">
+            โจทย์ระดับ: ปานกลาง
+          </p>
+          
+          <div style="display:grid; grid-template-columns:1fr; gap:10px;" id="rem-quiz-options-wrapper">
+            <!-- Choices buttons A, B, C, D -->
+          </div>
+          
+          <div style="text-align:center; font-size:0.9rem; font-weight:bold; color:var(--neon-cyan); margin-top:20px;" id="rem-answer-status-lbl">
+            กรุณาเลือกกดคำตอบที่ถูกต้องที่สุด!
+          </div>
+        </div>
+
+        <!-- PHASE 3.5: RESULTS EXPLANATION VIEW -->
+        <div id="rem-explanation-panel" style="display: none; text-align: center;">
+          <div id="rem-exp-result-icon" style="font-size: 3rem;">✓</div>
+          <h3 id="rem-exp-result-title" style="margin-top:10px;">คำตอบของคุณถูกต้อง!</h3>
+          <p style="font-size: 0.9rem; color: #cbd5e1; margin-top: 15px; text-align: left; line-height: 1.6; border-left: 2px solid var(--neon-cyan); padding-left:10px;" id="rem-exp-fact-text">
+            คำอธิบายวิทยาศาสตร์...
+          </p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 20px;">
+            รอครูประมวลผลอนิมชันดาเมจบนหน้าจอหลักเพื่อเข้าสู่เทิร์นถัดไป
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================================================
+       VIEW 4: TEACHER BACKSTAGE (DASHBOARD FOR QUESTION CRUD)
+       ========================================================================== -->
+  <main id="teacher-view" class="app-view">
+    <!-- Sidebar: CRUD questions settings -->
+    <section class="dashboard-sidebar glass-panel">
+      <h3 class="sidebar-section-title">⚙️ เมนูจัดการห้องเรียน</h3>
+      
+      <button class="btn-neon" onclick="window.App.showView('projector-view')" style="width: 100%; margin-bottom:12px;">
+        🖥️ สลับไปหน้าโปรเจกเตอร์
+      </button>
+
+      <button class="btn-neon btn-neon-red" onclick="window.App.resetStudentGame();" style="width: 100%; margin-bottom:12px;">
+        🔄 ล้างห้องเรียน & รีเซ็ตด่าน
+      </button>
+
+      <button class="btn-neon" onclick="window.App.showView('home-view')" style="margin-top: auto; width: 100%;">
+        ↩️ กลับหน้าหลัก
+      </button>
+    </section>
+
+    <!-- Main Backstage Dashboard content -->
+    <section class="dashboard-content">
+      <div class="dashboard-header">
+        <h2 style="font-weight: 700;">แผงควบคุมคุณครู (Teacher Dashboard)</h2>
+        <div class="dashboard-tabs">
+          <button class="tab-btn active" data-tab="class-progress-tab">📊 รายงานความก้าวหน้าห้องเรียน</button>
+          <button class="tab-btn" data-tab="questions-tab">📝 จัดการคลังข้อสอบ</button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Classroom Progress Summaries -->
+      <div class="dashboard-view active" id="class-progress-tab">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-bottom:1px solid var(--border-light); padding-bottom:15px; margin-bottom:15px;">
+          <div>
+            <h3 style="font-weight: 700; color: var(--neon-cyan); font-size:1.4rem;">📊 สรุปผลงานความก้าวหน้าและการเรียนรู้ของห้องเรียน</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">
+              รายงานข้อมูลสถิติผลสัมฤทธิ์ทางการเรียนและการซ่อมแซมสถานีอวกาศของนักเรียนทั้งห้อง (ไม่มีการแสดงผลแยกรายบุคคล)
+            </p>
+          </div>
+          <button class="btn-neon btn-neon-red" onclick="window.resetAllGradesProgress();" style="padding:8px 18px; font-size:0.85rem;">
+            🔄 รีเซ็ตสถิติทุกระดับชั้น
+          </button>
+        </div>
+        <div class="class-progress-grid" id="class-progress-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;">
+          <!-- Dynamically populated class cards for each level P.4 - M.3 -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Questions CRUD Editor -->
+      <div class="dashboard-view" id="questions-tab">
+        <div class="questions-toolbar" style="display: flex; flex-direction: column; gap: 15px; background: rgba(20, 20, 35, 0.6); padding: 15px; border-radius: 10px; border: 1px solid var(--border-light); margin-bottom: 20px;">
+          <!-- Top Row: Add Question & Grade Selector -->
+          <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div class="flex-row-center" style="gap: 10px;">
+              <label for="q-grade-filter" style="font-weight: 600; color: var(--neon-cyan);">ระดับชั้นเรียน:</label>
+              <select id="q-grade-filter" class="select-cyber" style="min-width: 220px;">
+                <option value="p4">ประถมศึกษาปีที่ 4 (ป.4)</option>
+                <option value="p5">ประถมศึกษาปีที่ 5 (ป.5)</option>
+                <option value="p6">ประถมศึกษาปีที่ 6 (ป.6)</option>
+                <option value="m1">มัธยมศึกษาปีที่ 1 (ม.1)</option>
+                <option value="m2">มัธยมศึกษาปีที่ 2 (ม.2)</option>
+                <option value="m3">มัธยมศึกษาปีที่ 3 (ม.3)</option>
+              </select>
+            </div>
+            
+            <button class="btn-neon" id="btn-add-new-question">
+              ➕ เพิ่มคำถามวิทยาศาสตร์ใหม่
+            </button>
+          </div>
+
+          <!-- Bottom Row: Search, Subject, Difficulty Filters & Sorting -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; width: 100%;">
+            <!-- Search Keyword -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="q-search-input" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">ค้นหาด้วยคำค้น:</label>
+              <input type="text" id="q-search-input" class="input-cyber" placeholder="พิมพ์โจทย์, ตัวเลือก, คำใบ้..." style="padding: 8px 12px; font-size: 0.9rem; height: 38px;">
+            </div>
+
+            <!-- Subject Filter -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="q-subject-filter" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">สาระวิชา (หัวข้อ):</label>
+              <select id="q-subject-filter" class="select-cyber" style="height: 38px;">
+                <option value="all">ทั้งหมด (All Topics)</option>
+                <option value="bio">ชีววิทยา (Biology)</option>
+                <option value="chem">เคมี (Chemistry)</option>
+                <option value="phys">ฟิสิกส์ (Physics)</option>
+                <option value="space">โลกและอวกาศ (Earth & Space)</option>
+                <option value="other">หัวข้ออื่นๆ (Others)</option>
+              </select>
+            </div>
+
+            <!-- Difficulty Filter -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="q-diff-filter" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">ระดับความยาก:</label>
+              <select id="q-diff-filter" class="select-cyber" style="height: 38px;">
+                <option value="all">ทั้งหมด (All)</option>
+                <option value="easy">ง่าย (Easy)</option>
+                <option value="medium">ปานกลาง (Medium)</option>
+                <option value="hard">ยาก (Hard)</option>
+              </select>
+            </div>
+
+            <!-- Sort By -->
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="q-sort-by" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">เรียงลำดับตาม:</label>
+              <select id="q-sort-by" class="select-cyber" style="height: 38px;">
+                <option value="default">ค่าเริ่มต้น (Default)</option>
+                <option value="topic-asc">หัวข้อ ก-ฮ (Topic A-Z)</option>
+                <option value="topic-desc">หัวข้อ ฮ-ก (Topic Z-A)</option>
+                <option value="question-asc">โจทย์ ก-ฮ (Question A-Z)</option>
+                <option value="diff-asc">ความยาก ง่าย -> ยาก (Easy to Hard)</option>
+                <option value="diff-desc">ความยาก ยาก -> ง่าย (Hard to Easy)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="questions-grid-layout" id="questions-editor-list">
+          <!-- Load question cards lists -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== QUESTIONS EDIT MODAL FORM ==================== -->
+  <div class="screen-overlay" id="modal-question-editor">
+    <div class="game-terminal" style="max-width: 680px;">
+      
+      <div class="terminal-header" style="border-bottom-color: rgba(143, 0, 255, 0.3);">
+        <div class="terminal-title" style="color: var(--neon-purple);">
+          <span>📝</span>
+          <span id="modal-editor-title">แก้ไขข้อสอบวิทยาศาสตร์</span>
+        </div>
+      </div>
+
+      <form id="form-question-edit" class="terminal-body" style="padding: 25px;">
+        <div class="modal-form-grid">
+          
+          <div class="dashboard-form-group form-full-width">
+            <label for="txt-q-question">คำถามวิทยาศาสตร์หลัก:</label>
+            <textarea id="txt-q-question" class="input-cyber" placeholder="กรอกข้อคำถามหลักสูตรแกนกลางวิทย์ภาษาไทย..." required></textarea>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="txt-q-topic">สาระการเรียนรู้ (เช่น ฟิสิกส์, เคมี):</label>
+            <input type="text" id="txt-q-topic" class="input-cyber" placeholder="เช่น ฟิสิกส์, เคมี" required>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="select-q-difficulty">ระดับความยากของมูฟคำถาม:</label>
+            <select id="select-q-difficulty" class="select-cyber">
+              <option value="easy">ง่าย (Easy) - ดาเมจ 20</option>
+              <option value="medium">ปานกลาง (Medium) - ดาเมจ 45</option>
+              <option value="hard">ยาก (Hard) - ดาเมจ 80 / บาเรีย</option>
+            </select>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="select-q-correct">คำตอบที่ถูกต้อง (เฉลยดัชนี):</label>
+            <select id="select-q-correct" class="select-cyber">
+              <option value="0">ตัวเลือก ก (ข้อ A)</option>
+              <option value="1">ตัวเลือก ข (ข้อ B)</option>
+              <option value="2">ตัวเลือก ค (ข้อ C)</option>
+              <option value="3">ตัวเลือก ง (ข้อ D)</option>
+            </select>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="txt-q-opt0">ตัวเลือก ก (A):</label>
+            <input type="text" id="txt-q-opt0" class="input-cyber" required>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="txt-q-opt1">ตัวเลือก ข (B):</label>
+            <input type="text" id="txt-q-opt1" class="input-cyber" required>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="txt-q-opt2">ตัวเลือก ค (C):</label>
+            <input type="text" id="txt-q-opt2" class="input-cyber" required>
+          </div>
+
+          <div class="dashboard-form-group">
+            <label for="txt-q-opt3">ตัวเลือก ง (D):</label>
+            <input type="text" id="txt-q-opt3" class="input-cyber" required>
+          </div>
+
+          <div class="dashboard-form-group form-full-width">
+            <label for="txt-q-hint">คำอธิบาย/คำใบ้ (Hint) วิทยาศาสตร์เบื้องหลัง:</label>
+            <textarea id="txt-q-hint" class="input-cyber"></textarea>
+          </div>
+
+          <div class="dashboard-form-group form-full-width">
+            <label for="txt-q-reason">เหตุผลทางวิชาการและวิทยาศาสตร์ที่จำเป็นต้องเรียนรู้:</label>
+            <textarea id="txt-q-reason" class="input-cyber"></textarea>
+          </div>
+
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-top: 25px; justify-content: flex-end;">
+          <button type="button" class="btn-neon" id="btn-cancel-question">ยกเลิก</button>
+          <button type="submit" class="btn-neon btn-neon-purple">บันทึกข้อความคำถาม</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Loading scripts -->
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+  <script src="game.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
