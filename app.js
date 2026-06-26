@@ -198,6 +198,7 @@ window.SoundFX = SoundFX;
 // ==========================================================================
 const DEFAULT_SYSTEM_SETTINGS = {
   activeGrade: "p4", 
+  activeSlot: 1,
   timerLimit: 90,    
   hintsEnabled: true, 
   soundEnabled: true  
@@ -237,21 +238,44 @@ function getActiveGrade() {
   return "p4";
 }
 
-// Helper: สร้าง localStorage key เฉพาะแต่ละระดับชั้น (per-grade save)
-function gk(baseKey) {
-  const grade = getActiveGrade();
-  return `${baseKey}_${grade}`;
+function getActiveSlot() {
+  const stored = localStorage.getItem("sci_quest_settings");
+  if (stored) {
+    try {
+      return JSON.parse(stored).activeSlot || 1;
+    } catch (e) {
+      return 1;
+    }
+  }
+  return 1;
 }
 
-// ตรวจสอบว่าระดับชั้นนี้มีข้อมูลเซฟหรือไม่
-function hasSaveData(grade) {
-  const modulesKey = `sci_quest_modules_${grade}`;
-  const scoreKey = `sci_quest_student_score_${grade}`;
+// Helper: สร้าง localStorage key เฉพาะแต่ละระดับชั้น + ช่องเซฟ (per-grade per-slot save)
+function gk(baseKey) {
+  const grade = getActiveGrade();
+  const slot = getActiveSlot();
+  return `${baseKey}_${grade}_slot${slot}`;
+}
+
+// ตรวจสอบว่าระดับชั้นนี้มีข้อมูลเซฟในช่องใดช่องหนึ่งหรือไม่
+function hasSaveData(grade, slot) {
+  if (slot) {
+    return hasSaveDataInSlot(grade, slot);
+  }
+  for (let s = 1; s <= 3; s++) {
+    if (hasSaveDataInSlot(grade, s)) return true;
+  }
+  return false;
+}
+
+// ตรวจสอบข้อมูลเซฟในช่องที่ระบุ
+function hasSaveDataInSlot(grade, slot) {
+  const modulesKey = `sci_quest_modules_${grade}_slot${slot}`;
+  const scoreKey = `sci_quest_student_score_${grade}_slot${slot}`;
   try {
     const modules = JSON.parse(localStorage.getItem(modulesKey));
     const score = JSON.parse(localStorage.getItem(scoreKey));
     if (!modules || !score) return false;
-    // มีเซฟถ้าซ่อมแซม node ไปแล้วอย่างน้อย 1 ด่าน หรือคะแนน > 0
     for (let key in modules) {
       if (modules[key].repaired) return true;
     }
@@ -268,15 +292,18 @@ function initAppData() {
     }
     
     const grades = ["p4", "p5", "p6", "m1", "m2", "m3"];
+    const slots = [1, 2, 3];
     grades.forEach(g => {
-      const modulesKey = `sci_quest_modules_${g}`;
-      const scoreKey = `sci_quest_student_score_${g}`;
-      if (!localStorage.getItem(modulesKey)) {
-        localStorage.setItem(modulesKey, JSON.stringify(DEFAULT_MODULE_STATES));
-      }
-      if (!localStorage.getItem(scoreKey)) {
-        localStorage.setItem(scoreKey, JSON.stringify(DEFAULT_STUDENT_SCORE));
-      }
+      slots.forEach(s => {
+        const modulesKey = `sci_quest_modules_${g}_slot${s}`;
+        const scoreKey = `sci_quest_student_score_${g}_slot${s}`;
+        if (!localStorage.getItem(modulesKey)) {
+          localStorage.setItem(modulesKey, JSON.stringify(DEFAULT_MODULE_STATES));
+        }
+        if (!localStorage.getItem(scoreKey)) {
+          localStorage.setItem(scoreKey, JSON.stringify(DEFAULT_STUDENT_SCORE));
+        }
+      });
     });
     
     // คีย์ตัวแปรแชร์ข้อมูลการประสานความร่วมมือ Co-op
@@ -317,7 +344,8 @@ function saveSystemSettings(settings) {
 function getModuleStates() {
   initAppData();
   const grade = getActiveGrade();
-  const key = `sci_quest_modules_${grade}`;
+  const slot = getActiveSlot();
+  const key = `sci_quest_modules_${grade}_slot${slot}`;
   if (!localStorage.getItem(key)) {
     localStorage.setItem(key, JSON.stringify(DEFAULT_MODULE_STATES));
   }
@@ -326,7 +354,8 @@ function getModuleStates() {
 
 function saveModuleStates(states) {
   const grade = getActiveGrade();
-  const key = `sci_quest_modules_${grade}`;
+  const slot = getActiveSlot();
+  const key = `sci_quest_modules_${grade}_slot${slot}`;
   localStorage.setItem(key, JSON.stringify(states));
   window.dispatchEvent(new CustomEvent("modules-changed", { detail: states }));
 }
@@ -334,7 +363,8 @@ function saveModuleStates(states) {
 function getStudentScore() {
   initAppData();
   const grade = getActiveGrade();
-  const key = `sci_quest_student_score_${grade}`;
+  const slot = getActiveSlot();
+  const key = `sci_quest_student_score_${grade}_slot${slot}`;
   if (!localStorage.getItem(key)) {
     localStorage.setItem(key, JSON.stringify(DEFAULT_STUDENT_SCORE));
   }
@@ -343,7 +373,8 @@ function getStudentScore() {
 
 function saveStudentScore(scoreObj) {
   const grade = getActiveGrade();
-  const key = `sci_quest_student_score_${grade}`;
+  const slot = getActiveSlot();
+  const key = `sci_quest_student_score_${grade}_slot${slot}`;
   localStorage.setItem(key, JSON.stringify(scoreObj));
   window.dispatchEvent(new CustomEvent("score-changed", { detail: scoreObj }));
 }
@@ -351,8 +382,9 @@ function saveStudentScore(scoreObj) {
 // รีเซ็ตเกมห้องเรียน
 function resetStudentGame() {
   const grade = getActiveGrade();
-  const modulesKey = `sci_quest_modules_${grade}`;
-  const scoreKey = `sci_quest_student_score_${grade}`;
+  const slot = getActiveSlot();
+  const modulesKey = `sci_quest_modules_${grade}_slot${slot}`;
+  const scoreKey = `sci_quest_student_score_${grade}_slot${slot}`;
   
   localStorage.setItem(modulesKey, JSON.stringify(DEFAULT_MODULE_STATES));
   localStorage.setItem(scoreKey, JSON.stringify(DEFAULT_STUDENT_SCORE));
@@ -459,10 +491,11 @@ window.addEventListener("storage", function(event) {
     window.dispatchEvent(new CustomEvent("settings-changed", { detail: s }));
   }
   const grade = getActiveGrade();
-  if (event.key === `sci_quest_modules_${grade}`) {
+  const slot = getActiveSlot();
+  if (event.key === `sci_quest_modules_${grade}_slot${slot}`) {
     window.dispatchEvent(new CustomEvent("modules-changed", { detail: JSON.parse(event.newValue) }));
   }
-  if (event.key === `sci_quest_student_score_${grade}`) {
+  if (event.key === `sci_quest_student_score_${grade}_slot${slot}`) {
     window.dispatchEvent(new CustomEvent("score-changed", { detail: JSON.parse(event.newValue) }));
   }
   if (event.key === "sci_quest_game_phase") {
@@ -490,6 +523,16 @@ window.addEventListener("storage", function(event) {
 
 function showView(viewId) {
   SoundFX.playClick();
+  
+  // หากกด "เปิดหน้าจอเกมหลัก" (projector-view) ให้กลับไปที่หน้าเลือกระดับชั้นทุกครั้ง
+  if (viewId === "projector-view") {
+    localStorage.removeItem(gk("sci_quest_level_confirmed"));
+    // เรียกอัปเดต UI ให้แสดงหน้าเลือกชั้นเรียนทันที (ฟังก์ชันจาก game.js)
+    if (typeof updatePhaseUI === "function") {
+      updatePhaseUI("map");
+    }
+  }
+  
   const views = document.querySelectorAll(".app-view");
   views.forEach(v => v.classList.remove("active"));
   
@@ -552,6 +595,8 @@ window.App = {
   saveActiveMove,
   clearVotesAndResponses,
   hasSaveData,
+  hasSaveDataInSlot,
   gk,
-  getActiveGrade
+  getActiveGrade,
+  getActiveSlot
 };

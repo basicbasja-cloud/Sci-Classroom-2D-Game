@@ -154,6 +154,33 @@ body {
   box-shadow: 0 0 15px var(--neon-emerald);
 }
 
+/* ===== Save Slot Buttons ===== */
+.save-slot-btn {
+  background: rgba(0,0,0,0.4);
+  border: 2px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-out;
+  font-family: inherit;
+}
+
+.save-slot-btn:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan-glow);
+  background: rgba(0, 243, 255, 0.1);
+}
+
+.save-slot-btn.active {
+  border-color: var(--neon-emerald);
+  color: var(--neon-emerald);
+  box-shadow: 0 0 12px var(--neon-emerald-glow);
+  background: rgba(0, 255, 102, 0.1);
+}
+
 .btn-neon-red {
   color: var(--neon-red);
   border-color: var(--neon-red);

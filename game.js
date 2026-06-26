@@ -95,6 +95,7 @@ let myNickname = sessionStorage.getItem("sci_quest_nickname") || null;
 
 // ระดับชั้นเรียนที่เลือกสแตนบายก่อนเล่นเกม
 let selectedGradeForInit = "p4";
+let selectedSlotForInit = 1;
 
 // ==========================================================================
 // 2. ฟังก์ชันหน้าจอแผนที่ Candy Crush (Node Map Controller)
@@ -382,7 +383,6 @@ function setupLevelSelectUI() {
   const cards = document.querySelectorAll(".level-card-item");
   cards.forEach(card => {
     const grade = card.getAttribute("data-grade");
-    const hasSave = window.App.hasSaveData(grade);
     const saveIndicator = card.querySelector(".save-indicator");
     
     if (grade === selectedGradeForInit) {
@@ -395,8 +395,8 @@ function setupLevelSelectUI() {
       card.style.background = "rgba(0,0,0,0.3)";
     }
     
-    // เพิ่ม/อัปเดตตัวบ่งชี้เซฟ
-    if (hasSave) {
+    // เพิ่ม/อัปเดตตัวบ่งชี้เซฟ (แสดงถ้ามีเซฟในช่องใดช่องหนึ่ง)
+    if (window.App.hasSaveData(grade)) {
       if (!saveIndicator) {
         const indicator = document.createElement("div");
         indicator.className = "save-indicator";
@@ -412,19 +412,55 @@ function setupLevelSelectUI() {
     card.onclick = function() {
       SoundFX.playClick();
       selectedGradeForInit = grade;
+      selectedSlotForInit = 1;
       setupLevelSelectUI(); 
     };
   });
   
+  // แสดงปุ่มเลือกช่องเซฟ (3 slots) สำหรับเกรดที่เลือก
+  const slotContainer = document.getElementById("save-slot-container");
+  if (slotContainer) {
+    slotContainer.innerHTML = "";
+    const gradeHasSave = window.App.hasSaveData(selectedGradeForInit);
+    for (let s = 1; s <= 3; s++) {
+      const hasSlotSave = window.App.hasSaveDataInSlot(selectedGradeForInit, s);
+      const slotBtn = document.createElement("button");
+      slotBtn.className = "save-slot-btn";
+      if (s === selectedSlotForInit) {
+        slotBtn.classList.add("active");
+      }
+      let label = hasSlotSave ? `💾 ช่อง ${s}` : `📂 ช่อง ${s}`;
+      if (hasSlotSave) {
+        // แสดงจำนวนด่านที่ผ่าน
+        const modulesKey = `sci_quest_modules_${selectedGradeForInit}_slot${s}`;
+        try {
+          const mods = JSON.parse(localStorage.getItem(modulesKey));
+          if (mods) {
+            let repaired = 0;
+            for (let k in mods) { if (mods[k].repaired) repaired++; }
+            label += ` (${repaired}/10)`;
+          }
+        } catch(e) {}
+      }
+      slotBtn.textContent = label;
+      slotBtn.onclick = function() {
+        SoundFX.playClick();
+        selectedSlotForInit = s;
+        setupLevelSelectUI();
+      };
+      slotContainer.appendChild(slotBtn);
+    }
+  }
+  
   const confirmBtn = document.getElementById("btn-confirm-level");
   if (confirmBtn) {
-    const hasSave = window.App.hasSaveData(selectedGradeForInit);
-    if (hasSave) {
-      confirmBtn.textContent = "\u25B6\uFE0F \u0E40\u0E25\u0E48\u0E19\u0E15\u0E48\u0E2D (\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E0B\u0E1F\u0E40\u0E14\u0E34\u0E21)";
+    const hasSlotSave = window.App.hasSaveDataInSlot(selectedGradeForInit, selectedSlotForInit);
+    if (hasSlotSave) {
+      confirmBtn.textContent = `▶️ โหลดช่อง ${selectedSlotForInit} (มีเซฟ)`;
       confirmBtn.style.borderColor = "var(--neon-emerald)";
       confirmBtn.style.color = "var(--neon-emerald)";
     } else {
-      confirmBtn.textContent = "\u25B6\uFE0F \u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E01\u0E21 (\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E0B\u0E1F)";
+      confirmBtn.textContent = `▶️ เริ่มเกม (ช่อง ${selectedSlotForInit}: ใหม่)`;
       confirmBtn.style.borderColor = "var(--neon-cyan)";
       confirmBtn.style.color = "var(--neon-cyan)";
     }
@@ -434,6 +470,7 @@ function setupLevelSelectUI() {
       
       const settings = App.getSystemSettings();
       settings.activeGrade = selectedGradeForInit;
+      settings.activeSlot = selectedSlotForInit;
       App.saveSystemSettings(settings);
       
       App.setGamePhase("map");
@@ -442,7 +479,7 @@ function setupLevelSelectUI() {
       window.dispatchEvent(new CustomEvent("settings-changed", { detail: settings }));
       updatePhaseUI("map");
       
-      addShipLog(`\u0E22\u0E34\u0E19\u0E14\u0E35\u0E15\u0E49\u0E2D\u0E19\u0E23\u0E31\u0E1A\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E27\u0E34\u0E0A\u0E32\u0E43\u0E2B\u0E21\u0E48! \u0E40\u0E23\u0E34\u0E48\u0E21\u0E17\u0E23\u0E34\u0E1B\u0E1C\u0E08\u0E13\u0E20\u0E31\u0E22\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19\u0E40\u0E23\u0E35\u0E22\u0E19: ${selectedGradeForInit.toUpperCase()}`, "system");
+      addShipLog(`ยินดีต้อนรับระดับวิชาใหม่! เริ่มทริปผจณภัยสำหรับชั้นเรียน: ${selectedGradeForInit.toUpperCase()} ช่อง ${selectedSlotForInit}`, "system");
     };
   }
 }
