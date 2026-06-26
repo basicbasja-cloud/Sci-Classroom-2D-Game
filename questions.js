@@ -1,7 +1,7 @@
 /**
  * คลังคำถามวิชา วิทยาศาสตร์ สำหรับการศึกษา ป.4 ถึง ม.3 (Sci-Quest 2026)
  * บันทึกใน LocalStorage แบ่งระดับความยาก (easy, medium, hard) เพื่อจับคู่ท่าต่อสู้สไตล์โปเกมอน
- * มีคำถามสำเร็จรูปทั้งหมด 180 ข้อ (ระดับชั้นละ 30 ข้อ)
+ * มีคำถามสำเร็จรูปทั้งหมด 240 ข้อ (ระดับชั้นละ 40 ข้อ)
  */
 
 const DEFAULT_QUESTIONS = {
@@ -2730,10 +2730,10 @@ function getQuestions() {
           total += parsed[grade].length;
         }
       }
-      if (total >= 180) {
+      if (total >= 200) {
         return parsed;
       }
-      console.log(`Stored question database has only ${total} questions. Migrating to DEFAULT_QUESTIONS (180 questions)...`);
+      console.log(`Stored question database has only ${total} questions. Migrating to DEFAULT_QUESTIONS...`);
     } catch (e) {
       console.error("Error parsing stored questions", e);
     }

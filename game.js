@@ -76,8 +76,11 @@ const NODE_ENEMIES = {
 };
 
 let activeQuestionObj = null;
-let quizSecondsLeft = 30;
+let quizSecondsLeft = 90;
 let quizTimerInterval = null;
+
+// เก็บ ID คำถามที่ถูกใช้ไปแล้วในรอบการสู้ครั้งนี้ (กันคำถามซ้ำ)
+let usedQuestionIds = new Set();
 
 // สารพัดตัวแปรกระสุนเวทมนตร์แคนวาส 2D
 let combatCanvas = null;
@@ -126,7 +129,7 @@ function renderNodeMap() {
     nodeEl.style.left = `${pos.x * 100}%`;
     nodeEl.style.top = `${pos.y * 100}%`;
     nodeEl.style.position = "absolute";
-    nodeEl.style.transform = "translate(-50%, -50%)";
+    nodeEl.style.transform = "translate(-50%, -50%);
     
     if (mod.repaired) {
       nodeEl.className = `map-node repaired`;
@@ -209,7 +212,7 @@ function drawNodePath() {
   }
   ctx.lineTo(points[points.length-1].x, points[points.length-1].y);
   
-  ctx.strokeStyle = "rgba(0, 243, 255, 0.4)";
+  ctx.strokeStyle = "rgba(0, 243, 255, 0.4);
   ctx.lineWidth = 6;
   ctx.setLineDash([10, 15]);
   ctx.shadowBlur = 12;
@@ -224,6 +227,9 @@ function drawNodePath() {
 function startClassroomBattle(nodeKey) {
   const modules = App.getModuleStates();
   const mod = modules[nodeKey];
+  
+  // รีเซ็ตคำถามที่ใช้แล้วสำหรับรอบการสู้ครั้งนี้
+  usedQuestionIds = new Set();
   
   App.setActiveNode(nodeKey);
   App.clearVotesAndResponses();
@@ -266,11 +272,11 @@ function startClassroomBattle(nodeKey) {
     addShipLog(`คุณครูเริ่มระบบต่อสู้: ${mod.label} ปะทะศัตรูระลอกแรก: ${activeEnemy.name}!`, "system");
   }
   
-  localStorage.setItem("sci_quest_battle_enemy_index", enemyIndex);
-  localStorage.setItem("sci_quest_boss_hp", currentBossHp);
-  localStorage.setItem("sci_quest_boss_max_hp", maxBossHp);
-  localStorage.setItem("sci_quest_moves_pp", JSON.stringify(ppState));
-  localStorage.setItem("sci_quest_combo_count", comboCount);
+  localStorage.setItem(gk("sci_quest_battle_enemy_index"), enemyIndex);
+  localStorage.setItem(gk("sci_quest_boss_hp"), currentBossHp);
+  localStorage.setItem(gk("sci_quest_boss_max_hp"), maxBossHp);
+  localStorage.setItem(gk("sci_quest_moves_pp"), JSON.stringify(ppState));
+  localStorage.setItem(gk("sci_quest_combo_count"), comboCount);
   
   App.setGamePhase("voting");
 }
@@ -279,7 +285,7 @@ function startClassroomBattle(nodeKey) {
 // 3. ฟังก์ชันอัปเดตสถานะ Interface ครู/นักเรียน (Phase Management)
 // ==========================================================================
 function updatePhaseUI(phase) {
-  const levelConfirmed = localStorage.getItem("sci_quest_level_confirmed") === "true";
+  const levelConfirmed = localStorage.getItem(gk("sci_quest_level_confirmed")) === "true";
   
   const levelSelectEl = document.getElementById("rpg-level-select");
   const sidebarEl = document.querySelector(".game-sidebar");
@@ -371,11 +377,13 @@ function updatePhaseUI(phase) {
   updateStudentControllerUI();
 }
 
-// ตั้งค่าและผูกตัวเลือกสำหรับการเริ่มต้นเลือกระดับชั้นเรียนของครู
+// ตั้งค่าและผูกตัวเลือกสำหรับการเริ่มต้นเลือกระดับชั้นเรียนของครู (Save Slot Menu)
 function setupLevelSelectUI() {
   const cards = document.querySelectorAll(".level-card-item");
   cards.forEach(card => {
     const grade = card.getAttribute("data-grade");
+    const hasSave = window.App.hasSaveData(grade);
+    const saveIndicator = card.querySelector(".save-indicator");
     
     if (grade === selectedGradeForInit) {
       card.style.borderColor = "var(--neon-cyan)";
@@ -387,6 +395,20 @@ function setupLevelSelectUI() {
       card.style.background = "rgba(0,0,0,0.3)";
     }
     
+    // เพิ่ม/อัปเดตตัวบ่งชี้เซฟ
+    if (hasSave) {
+      if (!saveIndicator) {
+        const indicator = document.createElement("div");
+        indicator.className = "save-indicator";
+        indicator.style.cssText = "position:absolute;top:-6px;right:-6px;background:var(--neon-emerald);color:#000;font-size:0.65rem;font-weight:bold;padding:2px 7px;border-radius:10px;box-shadow:0 0 8px var(--neon-emerald-glow);";
+        indicator.textContent = "💾";
+        card.style.position = "relative";
+        card.appendChild(indicator);
+      }
+    } else if (saveIndicator) {
+      saveIndicator.remove();
+    }
+    
     card.onclick = function() {
       SoundFX.playClick();
       selectedGradeForInit = grade;
@@ -396,6 +418,17 @@ function setupLevelSelectUI() {
   
   const confirmBtn = document.getElementById("btn-confirm-level");
   if (confirmBtn) {
+    const hasSave = window.App.hasSaveData(selectedGradeForInit);
+    if (hasSave) {
+      confirmBtn.textContent = "▶️ เล่นต่อ (โหลดเซฟเดิม)";
+      confirmBtn.style.borderColor = "var(--neon-emerald)";
+      confirmBtn.style.color = "var(--neon-emerald)";
+    } else {
+      confirmBtn.textContent = "🎮 เริ่มใหม่ (ระดับนี้ยังไม่มีเซฟ)";
+      confirmBtn.style.borderColor = "var(--neon-cyan)";
+      confirmBtn.style.color = "var(--neon-cyan)";
+    }
+    
     confirmBtn.onclick = function() {
       SoundFX.playBeep(880, 0.25);
       
@@ -403,7 +436,9 @@ function setupLevelSelectUI() {
       settings.activeGrade = selectedGradeForInit;
       App.saveSystemSettings(settings);
       
-      localStorage.setItem("sci_quest_level_confirmed", "true");
+      // รีเซ็ต phase เป็น map เมื่อเลือกชั้นเรียน
+      App.setGamePhase("map");
+      localStorage.setItem(gk("sci_quest_level_confirmed"), "true");
       
       window.dispatchEvent(new CustomEvent("settings-changed", { detail: settings }));
       updatePhaseUI("map");
@@ -415,7 +450,7 @@ function setupLevelSelectUI() {
 
 const TRANSPARENT_SPRITE_CACHE = {};
 
-// ลบสีดำออกจากภาพเพื่อสร้างโปร่งใสแบบ real transparent PNG
+// ลบพื้นหลังขาวออกจากภาพ PNG ให้โปร่งใส
 function getTransparentSprite(imgUrl, callback) {
   if (TRANSPARENT_SPRITE_CACHE[imgUrl]) {
     callback(TRANSPARENT_SPRITE_CACHE[imgUrl]);
@@ -423,9 +458,8 @@ function getTransparentSprite(imgUrl, callback) {
   }
   
   const img = new Image();
-  // No crossOrigin needed - all sprites are same-origin local assets
   img.onload = function() {
-    // Limit processing size to avoid quota/memory issues on large sprites
+    // Limit processing size to avoid quota/memory issues
     const MAX_SIZE = 512;
     let w = img.width;
     let h = img.height;
@@ -445,13 +479,14 @@ function getTransparentSprite(imgUrl, callback) {
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
       
-      // ลบพิกเซลที่เป็นสีดำสนิทหรือใกล้เคียงมากๆ (Threshold = 28)
+      // ลบพิกเซลสีขาว/เกือบขาวออก (Threshold 200) - ทำให้โปร่งใส
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i+1];
         const b = data[i+2];
-        if (r < 28 && g < 28 && b < 28) {
-          data[i+3] = 0; // ตั้งค่า Alpha = 0 (โปร่งใส)
+        // ถ้าพิกเซลสว่างมาก (ขาว/เกือบขาว) => ตั้งค่า Alpha = 0
+        if (r > 200 && g > 200 && b > 200) {
+          data[i+3] = 0;
         }
       }
       
@@ -460,8 +495,7 @@ function getTransparentSprite(imgUrl, callback) {
       TRANSPARENT_SPRITE_CACHE[imgUrl] = dataUrl;
       callback(dataUrl);
     } catch (e) {
-      console.warn("getTransparentSprite: canvas processing failed (" + e.message + "), falling back to original image");
-      // Fall back to original URL - no transparency but still works
+      console.warn("getTransparentSprite: canvas processing failed (" + e.message + "), falling back to original");
       callback(imgUrl);
     }
   };
@@ -470,6 +504,10 @@ function getTransparentSprite(imgUrl, callback) {
   };
   img.src = imgUrl;
 }
+
+// ==========================================================================
+// 4b. ใช้ getTransparentSprite สำหรับ sprite asset PNG
+// ==========================================================================
 
 // อัปเดตข้อมูล UI เลย์เอาต์บอสและตัวละคร
 function setupBattleArenaUI() {
@@ -481,23 +519,36 @@ function setupBattleArenaUI() {
   if (!activeMod) return;
   
   const nodeEnemies = NODE_ENEMIES[activeNodeKey] || [];
-  const enemyIndex = parseInt(localStorage.getItem("sci_quest_battle_enemy_index")) || 0;
+  const enemyIndex = parseInt(localStorage.getItem(gk("sci_quest_battle_enemy_index"))) || 0;
   const activeEnemy = nodeEnemies[enemyIndex] || nodeEnemies[0] || { name: activeMod.bossName, maxHp: 100, emoji: "👹", subject: activeMod.subject };
   
   // แสดงชื่อศัตรู พร้อมแถบความก้าวหน้าระลอก
   document.getElementById("battle-enemy-name").textContent = `${activeEnemy.name} (คลื่นที่ ${enemyIndex + 1}/${nodeEnemies.length})`;
   document.getElementById("battle-enemy-subject").textContent = `สาระวิชา: ${activeEnemy.subject}`;
   
-  // อัปเดต Sprite ตัวละครหลักและศัตรู - ใช้ CSS mix-blend-mode เพื่อลบพื้นหลังดำโดยไม่ต้องใช้ canvas
+  // อัปเดต Sprite ตัวละครหลัก (ใช้ sprite sheet 4×4 พร้อม Frame Animation)
   const playerSpriteEl = document.getElementById("battle-player-sprite");
   if (playerSpriteEl) {
-    playerSpriteEl.innerHTML = `<img src="assets/player_hero.png" alt="Hero" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;">`;
+    getTransparentSprite("assets/player_hero.png", function(url) {
+      playerSpriteEl.innerHTML = "";
+      playerSpriteEl.style.backgroundImage = `url('${url}')`;
+      playerSpriteEl.style.backgroundSize = "512px 512px";
+      playerSpriteEl.style.backgroundRepeat = "no-repeat";
+      playerSpriteEl.style.backgroundPosition = "0 0";
+      playerSpriteEl.classList.remove("hero-idle", "hero-attack", "hero-hurt");
+      playerSpriteEl.classList.add("hero-idle", "sprite-float");
+    });
   }
   
+  // อัปเดต Sprite ศัตรู (ใช้ img แบบเดี่ยว ไม่ใช่ sprite sheet)
   const enemySpriteEl = document.getElementById("battle-enemy-sprite");
   if (enemySpriteEl) {
     if (activeEnemy.sprite) {
-      enemySpriteEl.innerHTML = `<img src="${activeEnemy.sprite}" alt="Enemy" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;">`;
+      getTransparentSprite(activeEnemy.sprite, function(url) {
+        enemySpriteEl.innerHTML = `<img src="${url}" alt="Enemy" style="width: 100%; height: 100%; object-fit: contain;">`;
+        enemySpriteEl.style.backgroundImage = "none";
+        enemySpriteEl.classList.add("sprite-float");
+      });
     } else {
       enemySpriteEl.innerHTML = `<span style="font-size: 4rem; line-height: 1;">${activeEnemy.emoji || "👹"}</span>`;
     }
@@ -522,8 +573,8 @@ function setupBattleArenaUI() {
 }
 
 function updateBattleHPBars() {
-  const bossHp = parseInt(localStorage.getItem("sci_quest_boss_hp")) || 0;
-  const bossMaxHp = parseInt(localStorage.getItem("sci_quest_boss_max_hp")) || 100;
+  const bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
+  const bossMaxHp = parseInt(localStorage.getItem(gk("sci_quest_boss_max_hp"))) || 100;
   const studentScore = App.getStudentScore();
   const playerHp = studentScore.hp;
   const playerMaxHp = studentScore.maxHp;
@@ -549,7 +600,7 @@ function updateBattleHPBars() {
   document.getElementById("hud-correct-val").textContent = `${repairedCount}/${totalCount}`;
   
   // Update or create combo badge
-  const comboCount = parseInt(localStorage.getItem("sci_quest_combo_count")) || 0;
+  const comboCount = parseInt(localStorage.getItem(gk("sci_quest_combo_count"))) || 0;
   let comboBadge = document.getElementById("battle-combo-badge");
   if (!comboBadge) {
     // Create badge dynamically if not in HTML
@@ -577,7 +628,7 @@ function renderVoteBars() {
   if (!wrapper) return;
   wrapper.innerHTML = "";
   
-  const ppState = JSON.parse(localStorage.getItem("sci_quest_moves_pp")) || {};
+  const ppState = JSON.parse(localStorage.getItem(gk("sci_quest_moves_pp"))) || {};
   
   for (let key in MOVES) {
     const move = MOVES[key];
@@ -592,7 +643,7 @@ function renderVoteBars() {
     btnEl.style.textAlign = "left";
     btnEl.style.padding = "14px 20px";
     btnEl.style.border = `2px solid ${isExhausted ? '#475569' : move.color}`;
-    btnEl.style.background = isExhausted ? "rgba(30, 30, 40, 0.4)" : "rgba(0,0,0,0.5)";
+    btnEl.style.background = isExhausted ? "rgba(30, 30, 40, 0.4) : "rgba(0,0,0,0.5);
     btnEl.style.cursor = isExhausted ? "not-allowed" : "pointer";
     btnEl.style.color = isExhausted ? "#64748b" : "white";
     btnEl.style.borderRadius = "12px";
@@ -603,15 +654,15 @@ function renderVoteBars() {
     if (!isExhausted) {
       btnEl.onmouseover = () => {
         btnEl.style.background = move.color;
-        btnEl.style.color = "var(--text-dark)";
+        btnEl.style.color = "var(--text-dark);
         btnEl.style.boxShadow = `0 0 25px ${move.color}, inset 0 0 10px rgba(255,255,255,0.2)`;
-        btnEl.style.transform = "translateY(-2px)";
+        btnEl.style.transform = "translateY(-2px);
       };
       btnEl.onmouseout = () => {
-        btnEl.style.background = "rgba(0,0,0,0.5)";
+        btnEl.style.background = "rgba(0,0,0,0.5);
         btnEl.style.color = "white";
         btnEl.style.boxShadow = "none";
-        btnEl.style.transform = "translateY(0)";
+        btnEl.style.transform = "translateY(0);
       };
       
       btnEl.onclick = function() {
@@ -643,28 +694,32 @@ function selectMoveByTeacher(key) {
   
   // หักค่า PP ของท่าพิเศษ (ยกเว้น Laser Bolt)
   if (key !== "laser") {
-    const ppState = JSON.parse(localStorage.getItem("sci_quest_moves_pp")) || {};
+    const ppState = JSON.parse(localStorage.getItem(gk("sci_quest_moves_pp"))) || {};
     if (ppState[key] !== undefined) {
       ppState[key] = Math.max(0, ppState[key] - 1);
     } else {
       ppState[key] = chosenMove.maxPp - 1;
     }
-    localStorage.setItem("sci_quest_moves_pp", JSON.stringify(ppState));
+    localStorage.setItem(gk("sci_quest_moves_pp"), JSON.stringify(ppState));
   }
   
   const settings = App.getSystemSettings();
   const db = window.ScienceDB.getQuestions();
   const activeGrade = settings.activeGrade;
-  const activeSubject = localStorage.getItem("sci_quest_active_subject") || "all";
+  const activeSubject = localStorage.getItem(gk("sci_quest_active_subject")) || "all";
   
   const questionsList = db[activeGrade] || [];
   
   // กรองตามความยาก และ สาระวิชาที่ครูต้องการสอนคาบนี้
+  // และไม่เอาโจทย์ที่ถูกใช้ไปแล้วในรอบนี้
   let filtered = questionsList.filter(q => {
-    // 1. ตรวจสอบความยากของท่า
+    // 1. ข้ามคำถามที่ถูกใช้ไปแล้วในรอบการสู้ครั้งนี้
+    if (usedQuestionIds.has(q.id)) return false;
+    
+    // 2. ตรวจสอบความยากของท่า
     if (q.difficulty !== chosenMove.difficulty) return false;
     
-    // 2. ตรวจสอบความสอดคล้องกับสาระวิชาที่ครูเลือก
+    // 3. ตรวจสอบความสอดคล้องกับสาระวิชาที่ครูเลือก
     if (activeSubject === "biology") return q.topic.includes("ชีววิทยา");
     if (activeSubject === "chemistry") return q.topic.includes("เคมี");
     if (activeSubject === "physics") return q.topic.includes("ฟิสิกส์");
@@ -710,7 +765,10 @@ function selectMoveByTeacher(key) {
     return;
   }
   
-  localStorage.setItem("sci_quest_active_question_id", question.id);
+  // เก็บ ID คำถามที่ใช้ไปแล้วเพื่อกันซ้ำ
+  usedQuestionIds.add(question.id);
+  
+  localStorage.setItem(gk("sci_quest_active_question_id"), question.id);
   window.dispatchEvent(new CustomEvent("active-question-changed", { detail: question.id }));
   
   addShipLog(`ครูเลือกใช้ท่า: "${chosenMove.label}" ดึงโจทย์เรื่อง "${question.topic}" ระดับ "${chosenMove.difficulty === 'easy' ? 'ง่าย' : chosenMove.difficulty === 'medium' ? 'ปานกลาง' : 'ยาก'}"`, "system");
@@ -720,7 +778,7 @@ function selectMoveByTeacher(key) {
 
 // แสดงโจทย์วิทยาศาสตร์บนจอหลักโปรเจกเตอร์
 function renderProjectorQuestion() {
-  const qId = localStorage.getItem("sci_quest_active_question_id");
+  const qId = localStorage.getItem(gk("sci_quest_active_question_id"));
   if (!qId) return;
   
   const questionsData = window.ScienceDB.getQuestions();
@@ -749,22 +807,22 @@ function renderProjectorQuestion() {
     optEl.style.textAlign = "left";
     optEl.style.padding = "10px 16px";
     optEl.style.fontSize = "1.1rem";
-    optEl.style.border = "1px solid var(--border-light)";
-    optEl.style.background = "rgba(0,0,0,0.4)";
+    optEl.style.border = "1px solid var(--border-light);
+    optEl.style.background = "rgba(0,0,0,0.4);
     optEl.style.cursor = "pointer";
     optEl.style.color = "white";
     optEl.style.borderRadius = "12px";
     optEl.style.transition = "all 0.2s ease";
     
     optEl.onmouseover = () => {
-      optEl.style.borderColor = "var(--neon-cyan)";
-      optEl.style.boxShadow = "0 0 15px rgba(0, 243, 255, 0.35)";
-      optEl.style.transform = "translateY(-1px)";
+      optEl.style.borderColor = "var(--neon-cyan);
+      optEl.style.boxShadow = "0 0 15px rgba(0, 243, 255, 0.35);
+      optEl.style.transform = "translateY(-1px);
     };
     optEl.onmouseout = () => {
-      optEl.style.borderColor = "var(--border-light)";
+      optEl.style.borderColor = "var(--border-light);
       optEl.style.boxShadow = "none";
-      optEl.style.transform = "translateY(0)";
+      optEl.style.transform = "translateY(0);
     };
     
     optEl.onclick = () => {
@@ -782,12 +840,12 @@ function startProjectorTimer() {
   if (quizTimerInterval) clearInterval(quizTimerInterval);
   
   const settings = App.getSystemSettings();
-  quizSecondsLeft = settings.timerLimit || 30;
+  quizSecondsLeft = settings.timerLimit || 90;
   
   const timerValEl = document.getElementById("proj-timer-val");
   if (timerValEl) {
     timerValEl.textContent = `${quizSecondsLeft}s`;
-    timerValEl.style.color = "var(--neon-red)";
+    timerValEl.style.color = "var(--neon-red);
   }
   
   quizTimerInterval = setInterval(() => {
@@ -813,19 +871,19 @@ function resolveClassroomDirectChoice(chosenIdx) {
   const qObj = activeQuestionObj;
   if (!qObj) return;
   
-  localStorage.setItem("sci_quest_class_choice", chosenIdx);
+  localStorage.setItem(gk("sci_quest_class_choice"), chosenIdx);
   
   const isCorrect = chosenIdx === qObj.correct;
   const activeMove = App.getActiveMove();
   const activeNodeKey = App.getActiveNode();
   
-  const ppState = JSON.parse(localStorage.getItem("sci_quest_moves_pp")) || {};
+  const ppState = JSON.parse(localStorage.getItem(gk("sci_quest_moves_pp"))) || {};
   const currentPP = ppState[activeMove.key] !== undefined ? ppState[activeMove.key] : activeMove.maxPp;
   
   if (isCorrect) {
     // เพิ่มสะสมคอมโบเมื่อตอบถูกต้องต่อเนื่อง
-    const comboCount = (parseInt(localStorage.getItem("sci_quest_combo_count")) || 0) + 1;
-    localStorage.setItem("sci_quest_combo_count", comboCount);
+    const comboCount = (parseInt(localStorage.getItem(gk("sci_quest_combo_count"))) || 0) + 1;
+    localStorage.setItem(gk("sci_quest_combo_count"), comboCount);
     
     if (activeMove.type === "attack") {
       const baseDmg = activeMove.dmg;
@@ -843,25 +901,29 @@ function resolveClassroomDirectChoice(chosenIdx) {
         const playerSpriteEl = document.getElementById("battle-player-sprite");
         if (playerSpriteEl) {
           playerSpriteEl.classList.add("player-attack-dash");
-          setTimeout(() => playerSpriteEl.classList.remove("player-attack-dash"), 500);
+          playerSpriteEl.classList.replace("hero-idle", "hero-attack");
+          setTimeout(() => {
+            playerSpriteEl.classList.remove("player-attack-dash");
+            playerSpriteEl.classList.replace("hero-attack", "hero-idle");
+          }, 500);
         }
         
-        shootCombatProjectile(true, "rgba(100,100,100,0.3)", () => {
+        shootCombatProjectile(true, "rgba(100,100,100,0.3), () => {
           triggerDamageEffect(true, "MISS!");
           updateBattleHPBars();
         });
         
         addShipLog(`มติตอบถูก! คอมโบ x${comboCount} ➔ ร่ายท่า "${activeMove.label}" แต่การโจมตี [พลาดเป้า]! (Missed)`, "alert");
-        App.showToast("💨 การโจมตีพลาดเป้า (Missed!)");
+        App.showToast("💨 การโจมตีพลาดเป้า (Missed!));
       } else {
         // โจมตีโดน -> คำนวณคริติคอล (Critical Check)
         const critChance = activeMove.critChance !== undefined ? activeMove.critChance : 0.1;
         const isCrit = Math.random() <= critChance;
         const finalDmg = Math.round(baseDmg * comboMultiplier * (isCrit ? 1.5 : 1.0));
         
-        let bossHp = parseInt(localStorage.getItem("sci_quest_boss_hp")) || 0;
+        let bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
         bossHp = Math.max(0, bossHp - finalDmg);
-        localStorage.setItem("sci_quest_boss_hp", bossHp);
+        localStorage.setItem(gk("sci_quest_boss_hp"), bossHp);
         
         // อัปเดตข้อมูลความคืบหน้าบอสลงโมดูล
         const modules = App.getModuleStates();
@@ -881,7 +943,11 @@ function resolveClassroomDirectChoice(chosenIdx) {
         const playerSpriteEl = document.getElementById("battle-player-sprite");
         if (playerSpriteEl) {
           playerSpriteEl.classList.add("player-attack-dash");
-          setTimeout(() => playerSpriteEl.classList.remove("player-attack-dash"), 500);
+          playerSpriteEl.classList.replace("hero-idle", "hero-attack");
+          setTimeout(() => {
+            playerSpriteEl.classList.remove("player-attack-dash");
+            playerSpriteEl.classList.replace("hero-attack", "hero-idle");
+          }, 500);
         }
         
         shootCombatProjectile(true, activeMove.color, () => {
@@ -918,7 +984,11 @@ function resolveClassroomDirectChoice(chosenIdx) {
       const playerSpriteEl = document.getElementById("battle-player-sprite");
       if (playerSpriteEl) {
         playerSpriteEl.classList.add("heal-bounce");
-        setTimeout(() => playerSpriteEl.classList.remove("heal-bounce"), 600);
+        playerSpriteEl.classList.replace("hero-idle", "hero-attack");
+        setTimeout(() => {
+          playerSpriteEl.classList.remove("heal-bounce");
+          playerSpriteEl.classList.replace("hero-attack", "hero-idle");
+        }, 600);
       }
       
       shootHealShieldRing(() => {
@@ -930,42 +1000,65 @@ function resolveClassroomDirectChoice(chosenIdx) {
     }
   } 
   else {
-    // ตอบผิดหรือหมดเวลา -> รีเซ็ตคอมโบเป็น 0
-    localStorage.setItem("sci_quest_combo_count", 0);
+    // ตอบผิด -> รีเซ็ตคอมโบ
+    localStorage.setItem(gk("sci_quest_combo_count"), 0);
     
-    const penaltyDmg = 20;
     const scoreObj = App.getStudentScore();
-    scoreObj.hp = Math.max(0, scoreObj.hp - penaltyDmg);
     scoreObj.wrong += 1;
     App.saveStudentScore(scoreObj);
     
-    window.SoundFX.playPlayerDamage();
+    const isTimeout = (chosenIdx === -1);
     
-    // แอนิเมชันโจมตีของฝั่งศัตรู
-    const enemySpriteEl = document.getElementById("battle-enemy-sprite");
-    if (enemySpriteEl) {
-      enemySpriteEl.classList.add("enemy-attack-dash");
-      setTimeout(() => enemySpriteEl.classList.remove("enemy-attack-dash"), 500);
-    }
-    
-    shootCombatProjectile(false, "var(--neon-red)", () => {
-      triggerDamageEffect(false, penaltyDmg);
+    // ถ้าหมดเวลา: ไม่มีการโจมตีใดๆ (turn-based รอให้บอสโจมตี)
+    // ถ้าตอบผิด: ฮีโร่โจมตี 7% แม่นยำ, 30% ดาเมจ
+    if (activeMove.type === "attack" && !isTimeout) {
+      const desperateAccuracy = 0.07;
+      const desperateDmgMultiplier = 0.30;
+      const isDesperateHit = Math.random() <= desperateAccuracy;
       
-      // แอนิเมชันได้รับความเสียหายของฝั่งผู้เล่น
+      // แอนิเมชันโจมตีของฝั่งผู้เล่น (แสดงเฉพาะตอบผิด ไม่ใช่หมดเวลา)
       const playerSpriteEl = document.getElementById("battle-player-sprite");
       if (playerSpriteEl) {
-        playerSpriteEl.classList.add("damaged-shake");
-        setTimeout(() => playerSpriteEl.classList.remove("damaged-shake"), 500);
+        playerSpriteEl.classList.add("player-attack-dash");
+        playerSpriteEl.classList.replace("hero-idle", "hero-attack");
+        setTimeout(() => {
+          playerSpriteEl.classList.remove("player-attack-dash");
+          playerSpriteEl.classList.replace("hero-attack", "hero-idle");
+        }, 500);
       }
       
-      updateBattleHPBars();
-    });
-    
-    if (chosenIdx === -1) {
-      addShipLog(`ห้องเรียนตอบไม่ทันเวลา! ➔ โดนศัตรูสวนกลับความเสียหาย -${penaltyDmg} HP! (คอมโบถูกรีเซ็ต)`, "alert");
-    } else {
-      addShipLog(`ห้องเรียนวิเคราะห์ผิดพลาด! ➔ โดนศัตรูโจมตีสวนกลับความเสียหาย -${penaltyDmg} HP! (คอมโบถูกรีเซ็ต)`, "alert");
+      if (isDesperateHit) {
+        // โจมตีติด! 30% ดาเมจ
+        const finalDmg = Math.max(3, Math.round(activeMove.dmg * desperateDmgMultiplier));
+        let bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
+        bossHp = Math.max(0, bossHp - finalDmg);
+        localStorage.setItem(gk("sci_quest_boss_hp"), bossHp);
+        
+        shootCombatProjectile(true, activeMove.color, () => {
+          triggerDamageEffect(true, `-${finalDmg} (7%)`);
+          updateBattleHPBars();
+        });
+        
+        addShipLog(`ตอบผิด! ปาฏิหาริย์ฮีโร่โจมตีติด -${finalDmg} DMG (7%)`, "warning");
+        App.showToast(`✨ ปาฏิหาริย์! ติด -${finalDmg} DMG`);
+      } else {
+        // พลาด
+        shootCombatProjectile(true, "rgba(200,200,200,0.3), () => {
+          triggerDamageEffect(true, "MISS!");
+          updateBattleHPBars();
+        });
+        
+        addShipLog(`ตอบผิด! ฮีโร่โจมตีพลาด (เหลือโอกาส 7%)`, "alert");
+        App.showToast("❌ ฮีโร่โจมตีพลาด! บอสกำลังจะโจมตี", true);
+      }
+    } else if (isTimeout) {
+      // หมดเวลา -> ไม่มีการโจมตีใดๆ
+      addShipLog(`หมดเวลา! ไม่มีการโจมตี รอบตกเป็นของบอส`, "alert");
+      App.showToast("⏱️ หมดเวลา! บอสกำลังจะโจมตี", true);
     }
+    
+    // ตั้งค่าเทิร์นของบอส
+    localStorage.setItem(gk("sci_quest_boss_turn_pending"), "true");
   }
   
   App.setGamePhase("explanation");
@@ -976,7 +1069,7 @@ function renderProjectorExplanation() {
   const qObj = activeQuestionObj;
   if (!qObj) return;
   
-  const chosenIdx = parseInt(localStorage.getItem("sci_quest_class_choice"));
+  const chosenIdx = parseInt(localStorage.getItem(gk("sci_quest_class_choice")));
   const isCorrect = chosenIdx === qObj.correct;
   
   document.getElementById("proj-exp-title").innerHTML = isCorrect
@@ -995,6 +1088,19 @@ function renderProjectorExplanation() {
     } else {
       statsEl.innerHTML = `มติห้องเรียนเลือกข้อ: <strong style="color:${isCorrect ? 'var(--neon-emerald)' : 'var(--neon-red)'}; font-size:1.1rem;">ข้อ ${['ก (A)','ข (B)','ค (C)','ง (D)'][chosenIdx]}</strong>`;
     }
+    
+    // ถ้าตอบผิดและกำลังจะมีบอสเทิร์น ให้แสดงข้อความเตือน
+    const bossTurnPending = localStorage.getItem(gk("sci_quest_boss_turn_pending")) === "true";
+    const nextBtn = document.getElementById("btn-proj-next-turn");
+    if (!isCorrect && bossTurnPending && nextBtn) {
+      nextBtn.textContent = "⚔️ รับมือบอสโจมตี!";
+      nextBtn.className = "btn-neon btn-neon-red";
+      nextBtn.style.animation = "logo-pulse 0.8s infinite alternate";
+    } else if (nextBtn) {
+      nextBtn.textContent = "ดำเนินการต่อไป ➔";
+      nextBtn.className = "btn-neon btn-neon-emerald";
+      nextBtn.style.animation = "";
+    }
   }
   
   const optionsGrid = document.getElementById("proj-options-grid");
@@ -1006,19 +1112,19 @@ function renderProjectorExplanation() {
     optEl.className = "glass-panel";
     optEl.style.padding = "10px 14px";
     optEl.style.fontSize = "1.1rem";
-    optEl.style.border = "1px solid var(--border-light)";
-    optEl.style.background = "rgba(0,0,0,0.2)";
+    optEl.style.border = "1px solid var(--border-light);
+    optEl.style.background = "rgba(0,0,0,0.2);
     
     if (idx === qObj.correct) {
-      optEl.style.borderColor = "var(--neon-emerald)";
-      optEl.style.boxShadow = "0 0 15px rgba(0, 255, 102, 0.25)";
-      optEl.style.background = "rgba(0, 255, 102, 0.05)";
+      optEl.style.borderColor = "var(--neon-emerald);
+      optEl.style.boxShadow = "0 0 15px rgba(0, 255, 102, 0.25);
+      optEl.style.background = "rgba(0, 255, 102, 0.05);
     } else if (idx === chosenIdx) {
-      optEl.style.borderColor = "var(--neon-red)";
-      optEl.style.boxShadow = "0 0 15px rgba(255, 46, 93, 0.25)";
-      optEl.style.background = "rgba(255, 46, 93, 0.05)";
+      optEl.style.borderColor = "var(--neon-red);
+      optEl.style.boxShadow = "0 0 15px rgba(255, 46, 93, 0.25);
+      optEl.style.background = "rgba(255, 46, 93, 0.05);
     } else {
-      optEl.style.borderColor = "var(--border-light)";
+      optEl.style.borderColor = "var(--border-light);
     }
     
     optEl.innerHTML = `
@@ -1086,9 +1192,9 @@ function startCombatCanvasLoop() {
     // Horizon glow line
     const lineGrad = combatCtx.createLinearGradient(0, 0, W, 0);
     lineGrad.addColorStop(0, "transparent");
-    lineGrad.addColorStop(0.25, "rgba(0,243,255,0.25)");
-    lineGrad.addColorStop(0.5, "rgba(143,0,255,0.6)");
-    lineGrad.addColorStop(0.75, "rgba(0,243,255,0.25)");
+    lineGrad.addColorStop(0.25, "rgba(0,243,255,0.25));
+    lineGrad.addColorStop(0.5, "rgba(143,0,255,0.6));
+    lineGrad.addColorStop(0.75, "rgba(0,243,255,0.25));
     lineGrad.addColorStop(1, "transparent");
     combatCtx.beginPath();
     combatCtx.moveTo(0, groundY);
@@ -1096,13 +1202,13 @@ function startCombatCanvasLoop() {
     combatCtx.strokeStyle = lineGrad;
     combatCtx.lineWidth = 2;
     combatCtx.shadowBlur = 12;
-    combatCtx.shadowColor = "rgba(143,0,255,0.8)";
+    combatCtx.shadowColor = "rgba(143,0,255,0.8);
     combatCtx.stroke();
     combatCtx.shadowBlur = 0;
     
     // Perspective grid on ground
     combatCtx.globalAlpha = 0.06;
-    combatCtx.strokeStyle = "rgba(0,243,255,1)";
+    combatCtx.strokeStyle = "rgba(0,243,255,1);
     combatCtx.lineWidth = 1;
     const vx = W * 0.5, vy = groundY;
     for (let i = 0; i <= 10; i++) {
@@ -1177,7 +1283,7 @@ function startCombatCanvasLoop() {
         combatCtx.strokeStyle = `rgba(0, 255, 102, ${(1 - s.progress) * 0.9})`;
         combatCtx.lineWidth = 5;
         combatCtx.shadowBlur = 20;
-        combatCtx.shadowColor = "rgba(0, 255, 102, 0.8)";
+        combatCtx.shadowColor = "rgba(0, 255, 102, 0.8);
         combatCtx.stroke();
         combatCtx.beginPath();
         combatCtx.arc(currentX, currentY, radius * 0.7, 0, Math.PI * 2);
@@ -1211,7 +1317,7 @@ function startCombatCanvasLoop() {
         // Bright white core
         combatCtx.beginPath();
         combatCtx.arc(currentX, currentY, s.size * 0.4, 0, Math.PI * 2);
-        combatCtx.fillStyle = "rgba(255,255,255,0.95)";
+        combatCtx.fillStyle = "rgba(255,255,255,0.95);
         combatCtx.shadowBlur = 10;
         combatCtx.shadowColor = "white";
         combatCtx.fill();
@@ -1317,7 +1423,7 @@ function shootHealShieldRing(onHealCallback) {
     progress: 0,
     speed: 0.04,
     size: 12,
-    color: "rgba(0, 255, 102, 0.7)",
+    color: "rgba(0, 255, 102, 0.7),
     isShield: true,
     isBurst: false,
     onHit: onHealCallback
@@ -1406,7 +1512,7 @@ function updateStudentControllerUI() {
     
     const statusLabel = document.getElementById("rem-voted-status-lbl");
     if (statusLabel) {
-      statusLabel.style.color = "var(--neon-cyan)";
+      statusLabel.style.color = "var(--neon-cyan);
       statusLabel.style.fontSize = "1.05rem";
       statusLabel.style.lineHeight = "1.6";
       statusLabel.innerHTML = `
@@ -1445,7 +1551,7 @@ function updateStudentControllerUI() {
 
 // วาดตัวเลือกข้อสอบวิทยาศาสตร์บนจอย
 function renderStudentQuizButtons() {
-  const qId = localStorage.getItem("sci_quest_active_question_id");
+  const qId = localStorage.getItem(gk("sci_quest_active_question_id"));
   const container = document.getElementById("rem-quiz-options-wrapper");
   if (!container) return;
   
@@ -1485,21 +1591,21 @@ function renderStudentQuizButtons() {
     btn.style.width = "100%";
     btn.style.textAlign = "left";
     btn.style.fontSize = "1.05rem";
-    btn.style.border = "1px solid var(--border-light)";
+    btn.style.border = "1px solid var(--border-light);
     
     if (myResponse !== undefined && myResponse !== null) {
       btn.disabled = true;
       if (myResponse === idx) {
-        btn.style.background = "var(--neon-cyan)";
-        btn.style.color = "var(--text-dark)";
-        btn.style.boxShadow = "0 0 10px var(--neon-cyan-glow)";
-        btn.style.borderColor = "var(--neon-cyan)";
+        btn.style.background = "var(--neon-cyan);
+        btn.style.color = "var(--text-dark);
+        btn.style.boxShadow = "0 0 10px var(--neon-cyan-glow);
+        btn.style.borderColor = "var(--neon-cyan);
       } else {
-        btn.style.background = "rgba(0,0,0,0.5)";
+        btn.style.background = "rgba(0,0,0,0.5);
         btn.style.opacity = "0.45";
       }
     } else {
-      btn.style.background = "rgba(0,0,0,0.45)";
+      btn.style.background = "rgba(0,0,0,0.45);
       btn.style.color = "white";
       
       btn.onclick = function() {
@@ -1515,10 +1621,10 @@ function renderStudentQuizButtons() {
   const statusLabel = document.getElementById("rem-answer-status-lbl");
   if (statusLabel) {
     if (myResponse !== undefined && myResponse !== null) {
-      statusLabel.style.color = "var(--neon-emerald)";
+      statusLabel.style.color = "var(--neon-emerald);
       statusLabel.textContent = `ส่งคำตอบข้อ ${prefixes[myResponse].replace('.','')} แล้ว! รอการเฉลยหน้าห้องเรียน`;
     } else {
-      statusLabel.style.color = "var(--neon-cyan)";
+      statusLabel.style.color = "var(--neon-cyan);
       statusLabel.textContent = "วิเคราะห์ให้ดี แล้วกดคลิกเลือกตัวเลือกกู้พลังงาน!";
     }
   }
@@ -1526,7 +1632,7 @@ function renderStudentQuizButtons() {
 
 // สรุปเฉลยวิทยาศาสตร์หลังตอบคำถามบนจอย
 function renderStudentExplanationPanel() {
-  const qId = localStorage.getItem("sci_quest_active_question_id");
+  const qId = localStorage.getItem(gk("sci_quest_active_question_id"));
   if (!qId) return;
   
   const questionsData = window.ScienceDB.getQuestions();
@@ -1548,21 +1654,21 @@ function renderStudentExplanationPanel() {
   
   if (myResponse === undefined || myResponse === null) {
     iconEl.textContent = "⏱️";
-    iconEl.style.color = "var(--neon-amber)";
+    iconEl.style.color = "var(--neon-amber);
     titleEl.textContent = "คุณส่งคำตอบไม่ทันเวลา!";
-    titleEl.style.color = "var(--neon-amber)";
+    titleEl.style.color = "var(--neon-amber);
   } 
   else if (isCorrect) {
     iconEl.textContent = "✓";
-    iconEl.style.color = "var(--neon-emerald)";
+    iconEl.style.color = "var(--neon-emerald);
     titleEl.textContent = "คำตอบของคุณถูกต้อง!";
-    titleEl.style.color = "var(--neon-emerald)";
+    titleEl.style.color = "var(--neon-emerald);
   } 
   else {
     iconEl.textContent = "✗";
-    iconEl.style.color = "var(--neon-red)";
+    iconEl.style.color = "var(--neon-red);
     titleEl.textContent = "คำตอบของคุณยังไม่ถูก!";
-    titleEl.style.color = "var(--neon-red)";
+    titleEl.style.color = "var(--neon-red);
   }
   
   document.getElementById("rem-exp-fact-text").innerHTML = `
@@ -1656,7 +1762,7 @@ window.addEventListener("score-changed", function(e) {
 window.addEventListener("game-reset", function() {
   sessionStorage.removeItem("sci_quest_nickname");
   myNickname = null;
-  localStorage.setItem("sci_quest_level_confirmed", "false");
+  localStorage.setItem(gk("sci_quest_level_confirmed"), "false");
   
   const logList = document.getElementById("ship-log-list");
   if (logList) logList.innerHTML = `<div class="log-item system">ระบบ: รอครูเปิดด่านผจญภัยด่าน 1 เครื่องยนต์ปฏิกรณ์ไฟฟ้า</div>`;
@@ -1737,7 +1843,7 @@ function initGameMultiplayer() {
   const select = document.getElementById("select-student-grade");
   if (select) select.value = settings.activeGrade;
 
-  const activeSubject = localStorage.getItem("sci_quest_active_subject") || "all";
+  const activeSubject = localStorage.getItem(gk("sci_quest_active_subject")) || "all";
   const subjectSelect = document.getElementById("select-question-subject");
   if (subjectSelect) subjectSelect.value = activeSubject;
 }
@@ -1781,25 +1887,130 @@ function handleTeacherForceSubmit() {
   resolveClassroomDirectChoice(-1); // -1 = หมดเวลา ศัตรูสวนกลับ
 }
 
+// ==========================================================================
+// 4c. ท่าโจมตีของบอส (สุ่มใช้แต่ละเทิร์น)
+// ==========================================================================
+const BOSS_MOVES = [
+  { name: "คลื่นกระแทก", dmg: 15, acc: 0.95, color: "#ff8844", desc: "พลังโจมตี 15 | แม่นยำ 95%" },
+  { name: "ลำแสงพิษ", dmg: 25, acc: 0.80, color: "#cc44ff", desc: "พลังโจมตี 25 | แม่นยำ 80%" },
+  { name: "หมัดอัสนี", dmg: 35, acc: 0.60, color: "#ffcc00", desc: "พลังโจมตี 35 | แม่นยำ 60%" },
+  { name: "ดูดพลัง", dmg: 0, healPct: 0.15, acc: 1.0, color: "#ff44aa", desc: "ดูดพลัง 15% HP บอส" }
+];
+
+// ฟังก์ชันให้บอสโจมตีผู้เล่น (turn-based) - สุ่มเลือกท่า
+function executeBossAttack() {
+  localStorage.removeItem(gk("sci_quest_boss_turn_pending"));
+  
+  const scoreObj = App.getStudentScore();
+  
+  // สุ่มเลือกท่าของบอส
+  const bossMove = BOSS_MOVES[Math.floor(Math.random() * BOSS_MOVES.length)];
+  
+  // ตรวจสอบความแม่นยำ
+  const isBossHit = Math.random() <= bossMove.acc;
+  
+  let actualDmg = 0;
+  
+  if (!isBossHit) {
+    // บอสโจมตีพลาด
+    addShipLog(`🍃 บอสใช้ "${bossMove.name}" แต่โจมตีพลาด!`, "system");
+    App.showToast(`🍃 บอสใช้ ${bossMove.name}... พลาด!`);
+  } else if (bossMove.healPct) {
+    // บอสใช้ท่าดูดพลัง: รักษาตัว
+    const bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
+    const bossMaxHp = parseInt(localStorage.getItem(gk("sci_quest_boss_max_hp"))) || 100;
+    const healAmt = Math.round(bossMaxHp * bossMove.healPct);
+    const newBossHp = Math.min(bossMaxHp, bossHp + healAmt);
+    localStorage.setItem(gk("sci_quest_boss_hp"), newBossHp);
+    
+    window.SoundFX.playChest();
+    
+    const enemySpriteEl = document.getElementById("battle-enemy-sprite");
+    if (enemySpriteEl) {
+      enemySpriteEl.classList.add("heal-bounce");
+      setTimeout(() => enemySpriteEl.classList.remove("heal-bounce"), 600);
+    }
+    
+    updateBattleHPBars();
+    addShipLog(`💜 บอสใช้ "${bossMove.name}" ดูดพลังชีวิต +${healAmt} HP`, "alert");
+    App.showToast(`💜 บอสใช้ ${bossMove.name} ฟื้น HP`);
+    actualDmg = 0;
+  } else {
+    // บอสโจมตีโดน
+    actualDmg = bossMove.dmg;
+    scoreObj.hp = Math.max(0, scoreObj.hp - actualDmg);
+    App.saveStudentScore(scoreObj);
+    
+    window.SoundFX.playPlayerDamage();
+    
+    // แอนิเมชันโจมตีของฝั่งศัตรู
+    const enemySpriteEl = document.getElementById("battle-enemy-sprite");
+    if (enemySpriteEl) {
+      enemySpriteEl.classList.add("enemy-attack-dash");
+      setTimeout(() => enemySpriteEl.classList.remove("enemy-attack-dash"), 500);
+    }
+    
+    shootCombatProjectile(false, bossMove.color, () => {
+      triggerDamageEffect(false, actualDmg);
+      
+      // แอนิเมชันได้รับความเสียหายของฝั่งผู้เล่น
+      const playerSpriteEl = document.getElementById("battle-player-sprite");
+      if (playerSpriteEl) {
+        playerSpriteEl.classList.add("damaged-shake");
+        playerSpriteEl.classList.replace("hero-idle", "hero-hurt");
+        setTimeout(() => {
+          playerSpriteEl.classList.remove("damaged-shake");
+          playerSpriteEl.classList.replace("hero-hurt", "hero-idle");
+        }, 500);
+      }
+      
+      updateBattleHPBars();
+    });
+    
+    addShipLog(`💥 บอสใช้ "${bossMove.name}" โจมตีใส่ปาร์ตี้ -${actualDmg} HP! (${Math.round(bossMove.acc * 100)}%)`, "alert");
+    App.showToast(`💥 บอสใช้ ${bossMove.name} -${actualDmg} HP`);
+  }
+  
+  // เช็คว่าผู้เล่นตายไหม
+  if (scoreObj.hp <= 0) {
+    setTimeout(() => {
+      window.SoundFX.playGameOver();
+      App.setGamePhase("gameover");
+    }, 600);
+  } else {
+    // กลับสู่เฟสโหวต (Player Turn)
+    setTimeout(() => {
+      App.clearVotesAndResponses();
+      App.setGamePhase("voting");
+    }, 600);
+  }
+}
+
 function handleTeacherNextTurn() {
   SoundFX.playClick();
   
-  const bossHp = parseInt(localStorage.getItem("sci_quest_boss_hp")) || 0;
+  // เช็คว่ามีบอสเทิร์นที่รอการดำเนินการอยู่หรือไม่
+  if (localStorage.getItem(gk("sci_quest_boss_turn_pending")) === "true") {
+    executeBossAttack();
+    return;
+  }
+  
+  const bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
   const scoreObj = App.getStudentScore();
   
   if (bossHp <= 0) {
     const activeNodeKey = App.getActiveNode();
     const nodeEnemies = NODE_ENEMIES[activeNodeKey] || [];
-    let enemyIndex = parseInt(localStorage.getItem("sci_quest_battle_enemy_index")) || 0;
+    let enemyIndex = parseInt(localStorage.getItem(gk("sci_quest_battle_enemy_index"))) || 0;
     
     if (enemyIndex < nodeEnemies.length - 1) {
       // มีศัตรูระลอกถัดไป!
       enemyIndex++;
       const nextEnemy = nodeEnemies[enemyIndex];
       
-      localStorage.setItem("sci_quest_battle_enemy_index", enemyIndex);
-      localStorage.setItem("sci_quest_boss_hp", nextEnemy.maxHp);
-      localStorage.setItem("sci_quest_boss_max_hp", nextEnemy.maxHp);
+      localStorage.setItem(gk("sci_quest_battle_enemy_index"), enemyIndex);
+      localStorage.setItem(gk("sci_quest_boss_hp"), nextEnemy.maxHp);
+      localStorage.setItem(gk("sci_quest_boss_max_hp"), nextEnemy.maxHp);
       
       // อัปเดตข้อมูลบอสลงในระดับชั้นเรียน/โมดูลเพื่อให้เซฟเกมถูกต้อง
       const modules = App.getModuleStates();
@@ -1863,7 +2074,7 @@ function handleTeacherNextTurn() {
 
 window.saveSubjectFromProjector = function(subject) {
   SoundFX.playClick();
-  localStorage.setItem("sci_quest_active_subject", subject);
+  localStorage.setItem(gk("sci_quest_active_subject"), subject);
   const text = document.getElementById("select-question-subject").selectedOptions[0].text;
   App.showToast(`📚 เปลี่ยนวิชาเน้นสอนเป็น: ${text}`);
   addShipLog(`คุณครูปรับหัวข้อคำถามที่จะเน้นสอนคาบนี้เป็น: ${text}`, "system");
@@ -1878,10 +2089,10 @@ window.saveAndExitBattle = function() {
   const activeNodeKey = App.getActiveNode();
   if (activeNodeKey) {
     const modules = App.getModuleStates();
-    const bossHp = parseInt(localStorage.getItem("sci_quest_boss_hp")) || 0;
-    const enemyIndex = parseInt(localStorage.getItem("sci_quest_battle_enemy_index")) || 0;
-    const movesPp = localStorage.getItem("sci_quest_moves_pp") || "";
-    const comboCount = parseInt(localStorage.getItem("sci_quest_combo_count")) || 0;
+    const bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
+    const enemyIndex = parseInt(localStorage.getItem(gk("sci_quest_battle_enemy_index"))) || 0;
+    const movesPp = localStorage.getItem(gk("sci_quest_moves_pp")) || "";
+    const comboCount = parseInt(localStorage.getItem(gk("sci_quest_combo_count"))) || 0;
     
     if (modules[activeNodeKey]) {
       modules[activeNodeKey].bossHp = bossHp;

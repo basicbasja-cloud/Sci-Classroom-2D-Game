@@ -198,7 +198,7 @@ window.SoundFX = SoundFX;
 // ==========================================================================
 const DEFAULT_SYSTEM_SETTINGS = {
   activeGrade: "p4", 
-  timerLimit: 30,    
+  timerLimit: 90,    
   hintsEnabled: true, 
   soundEnabled: true  
 };
@@ -235,6 +235,30 @@ function getActiveGrade() {
     }
   }
   return "p4";
+}
+
+// Helper: สร้าง localStorage key เฉพาะแต่ละระดับชั้น (per-grade save)
+function gk(baseKey) {
+  const grade = getActiveGrade();
+  return `${baseKey}_${grade}`;
+}
+
+// ตรวจสอบว่าระดับชั้นนี้มีข้อมูลเซฟหรือไม่
+function hasSaveData(grade) {
+  const modulesKey = `sci_quest_modules_${grade}`;
+  const scoreKey = `sci_quest_student_score_${grade}`;
+  try {
+    const modules = JSON.parse(localStorage.getItem(modulesKey));
+    const score = JSON.parse(localStorage.getItem(scoreKey));
+    if (!modules || !score) return false;
+    // มีเซฟถ้าซ่อมแซม node ไปแล้วอย่างน้อย 1 ด่าน หรือคะแนน > 0
+    for (let key in modules) {
+      if (modules[key].repaired) return true;
+    }
+    return score.score > 0 || score.correct > 0;
+  } catch(e) {
+    return false;
+  }
 }
 
 function initAppData() {
