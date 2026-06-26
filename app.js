@@ -550,5 +550,8 @@ window.App = {
   submitStudentResponse,
   getActiveMove,
   saveActiveMove,
-  clearVotesAndResponses
+  clearVotesAndResponses,
+  hasSaveData,
+  gk,
+  getActiveGrade
 };

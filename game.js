@@ -129,7 +129,7 @@ function renderNodeMap() {
     nodeEl.style.left = `${pos.x * 100}%`;
     nodeEl.style.top = `${pos.y * 100}%`;
     nodeEl.style.position = "absolute";
-    nodeEl.style.transform = "translate(-50%, -50%);
+    nodeEl.style.transform = "translate(-50%, -50%)";
     
     if (mod.repaired) {
       nodeEl.className = `map-node repaired`;
@@ -212,7 +212,7 @@ function drawNodePath() {
   }
   ctx.lineTo(points[points.length-1].x, points[points.length-1].y);
   
-  ctx.strokeStyle = "rgba(0, 243, 255, 0.4);
+  ctx.strokeStyle = "rgba(0, 243, 255, 0.4)";
   ctx.lineWidth = 6;
   ctx.setLineDash([10, 15]);
   ctx.shadowBlur = 12;
@@ -401,7 +401,7 @@ function setupLevelSelectUI() {
         const indicator = document.createElement("div");
         indicator.className = "save-indicator";
         indicator.style.cssText = "position:absolute;top:-6px;right:-6px;background:var(--neon-emerald);color:#000;font-size:0.65rem;font-weight:bold;padding:2px 7px;border-radius:10px;box-shadow:0 0 8px var(--neon-emerald-glow);";
-        indicator.textContent = "💾";
+        indicator.textContent = "\u{1F4BE}";
         card.style.position = "relative";
         card.appendChild(indicator);
       }
@@ -420,11 +420,11 @@ function setupLevelSelectUI() {
   if (confirmBtn) {
     const hasSave = window.App.hasSaveData(selectedGradeForInit);
     if (hasSave) {
-      confirmBtn.textContent = "▶️ เล่นต่อ (โหลดเซฟเดิม)";
+      confirmBtn.textContent = "\u25B6\uFE0F \u0E40\u0E25\u0E48\u0E19\u0E15\u0E48\u0E2D (\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E0B\u0E1F\u0E40\u0E14\u0E34\u0E21)";
       confirmBtn.style.borderColor = "var(--neon-emerald)";
       confirmBtn.style.color = "var(--neon-emerald)";
     } else {
-      confirmBtn.textContent = "🎮 เริ่มใหม่ (ระดับนี้ยังไม่มีเซฟ)";
+      confirmBtn.textContent = "\u25B6\uFE0F \u0E40\u0E23\u0E34\u0E48\u0E21\u0E40\u0E01\u0E21 (\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E0B\u0E1F)";
       confirmBtn.style.borderColor = "var(--neon-cyan)";
       confirmBtn.style.color = "var(--neon-cyan)";
     }
@@ -436,21 +436,20 @@ function setupLevelSelectUI() {
       settings.activeGrade = selectedGradeForInit;
       App.saveSystemSettings(settings);
       
-      // รีเซ็ต phase เป็น map เมื่อเลือกชั้นเรียน
       App.setGamePhase("map");
       localStorage.setItem(gk("sci_quest_level_confirmed"), "true");
       
       window.dispatchEvent(new CustomEvent("settings-changed", { detail: settings }));
       updatePhaseUI("map");
       
-      addShipLog(`ยินดีต้อนรับระดับวิชาใหม่! เริ่มทริปผจญภัยสำหรับชั้นเรียน: ${selectedGradeForInit.toUpperCase()}`, "system");
+      addShipLog(`\u0E22\u0E34\u0E19\u0E14\u0E35\u0E15\u0E49\u0E2D\u0E19\u0E23\u0E31\u0E1A\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E27\u0E34\u0E0A\u0E32\u0E43\u0E2B\u0E21\u0E48! \u0E40\u0E23\u0E34\u0E48\u0E21\u0E17\u0E23\u0E34\u0E1B\u0E1C\u0E08\u0E13\u0E20\u0E31\u0E22\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19\u0E40\u0E23\u0E35\u0E22\u0E19: ${selectedGradeForInit.toUpperCase()}`, "system");
     };
   }
 }
 
 const TRANSPARENT_SPRITE_CACHE = {};
 
-// ลบพื้นหลังขาวออกจากภาพ PNG ให้โปร่งใส
+// ลบสีดำออกจากภาพเพื่อสร้างโปร่งใสแบบ real transparent PNG
 function getTransparentSprite(imgUrl, callback) {
   if (TRANSPARENT_SPRITE_CACHE[imgUrl]) {
     callback(TRANSPARENT_SPRITE_CACHE[imgUrl]);
@@ -458,8 +457,9 @@ function getTransparentSprite(imgUrl, callback) {
   }
   
   const img = new Image();
+  // No crossOrigin needed - all sprites are same-origin local assets
   img.onload = function() {
-    // Limit processing size to avoid quota/memory issues
+    // Limit processing size to avoid quota/memory issues on large sprites
     const MAX_SIZE = 512;
     let w = img.width;
     let h = img.height;
@@ -486,7 +486,7 @@ function getTransparentSprite(imgUrl, callback) {
         const b = data[i+2];
         // ถ้าพิกเซลสว่างมาก (ขาว/เกือบขาว) => ตั้งค่า Alpha = 0
         if (r > 200 && g > 200 && b > 200) {
-          data[i+3] = 0;
+          data[i+3] = 0; // ตั้งค่า Alpha = 0 (โปร่งใส)
         }
       }
       
@@ -495,7 +495,8 @@ function getTransparentSprite(imgUrl, callback) {
       TRANSPARENT_SPRITE_CACHE[imgUrl] = dataUrl;
       callback(dataUrl);
     } catch (e) {
-      console.warn("getTransparentSprite: canvas processing failed (" + e.message + "), falling back to original");
+      console.warn("getTransparentSprite: canvas processing failed (" + e.message + "), falling back to original image");
+      // Fall back to original URL - no transparency but still works
       callback(imgUrl);
     }
   };
@@ -504,10 +505,6 @@ function getTransparentSprite(imgUrl, callback) {
   };
   img.src = imgUrl;
 }
-
-// ==========================================================================
-// 4b. ใช้ getTransparentSprite สำหรับ sprite asset PNG
-// ==========================================================================
 
 // อัปเดตข้อมูล UI เลย์เอาต์บอสและตัวละคร
 function setupBattleArenaUI() {
@@ -526,28 +523,27 @@ function setupBattleArenaUI() {
   document.getElementById("battle-enemy-name").textContent = `${activeEnemy.name} (คลื่นที่ ${enemyIndex + 1}/${nodeEnemies.length})`;
   document.getElementById("battle-enemy-subject").textContent = `สาระวิชา: ${activeEnemy.subject}`;
   
-  // อัปเดต Sprite ตัวละครหลัก (ใช้ sprite sheet 4×4 พร้อม Frame Animation)
+  // อัปเดต Sprite ตัวละครหลัก (Sprite Sheet 4×4 พร้อม Frame Animation)
   const playerSpriteEl = document.getElementById("battle-player-sprite");
   if (playerSpriteEl) {
+    playerSpriteEl.classList.add("hero-idle", "sprite-float");
     getTransparentSprite("assets/player_hero.png", function(url) {
       playerSpriteEl.innerHTML = "";
       playerSpriteEl.style.backgroundImage = `url('${url}')`;
       playerSpriteEl.style.backgroundSize = "512px 512px";
       playerSpriteEl.style.backgroundRepeat = "no-repeat";
       playerSpriteEl.style.backgroundPosition = "0 0";
-      playerSpriteEl.classList.remove("hero-idle", "hero-attack", "hero-hurt");
-      playerSpriteEl.classList.add("hero-idle", "sprite-float");
     });
   }
   
-  // อัปเดต Sprite ศัตรู (ใช้ img แบบเดี่ยว ไม่ใช่ sprite sheet)
+  // อัปเดต Sprite ศัตรู (ใช้ img เฉยๆ เพราะเป็นรูปเดี่ยว)
   const enemySpriteEl = document.getElementById("battle-enemy-sprite");
   if (enemySpriteEl) {
+    enemySpriteEl.classList.add("sprite-float");
     if (activeEnemy.sprite) {
       getTransparentSprite(activeEnemy.sprite, function(url) {
         enemySpriteEl.innerHTML = `<img src="${url}" alt="Enemy" style="width: 100%; height: 100%; object-fit: contain;">`;
         enemySpriteEl.style.backgroundImage = "none";
-        enemySpriteEl.classList.add("sprite-float");
       });
     } else {
       enemySpriteEl.innerHTML = `<span style="font-size: 4rem; line-height: 1;">${activeEnemy.emoji || "👹"}</span>`;
@@ -643,7 +639,7 @@ function renderVoteBars() {
     btnEl.style.textAlign = "left";
     btnEl.style.padding = "14px 20px";
     btnEl.style.border = `2px solid ${isExhausted ? '#475569' : move.color}`;
-    btnEl.style.background = isExhausted ? "rgba(30, 30, 40, 0.4) : "rgba(0,0,0,0.5);
+    btnEl.style.background = isExhausted ? "rgba(30, 30, 40, 0.4)" : "rgba(0,0,0,0.5)";
     btnEl.style.cursor = isExhausted ? "not-allowed" : "pointer";
     btnEl.style.color = isExhausted ? "#64748b" : "white";
     btnEl.style.borderRadius = "12px";
@@ -654,15 +650,15 @@ function renderVoteBars() {
     if (!isExhausted) {
       btnEl.onmouseover = () => {
         btnEl.style.background = move.color;
-        btnEl.style.color = "var(--text-dark);
+        btnEl.style.color = "var(--text-dark)";
         btnEl.style.boxShadow = `0 0 25px ${move.color}, inset 0 0 10px rgba(255,255,255,0.2)`;
-        btnEl.style.transform = "translateY(-2px);
+        btnEl.style.transform = "translateY(-2px)";
       };
       btnEl.onmouseout = () => {
-        btnEl.style.background = "rgba(0,0,0,0.5);
+        btnEl.style.background = "rgba(0,0,0,0.5)";
         btnEl.style.color = "white";
         btnEl.style.boxShadow = "none";
-        btnEl.style.transform = "translateY(0);
+        btnEl.style.transform = "translateY(0)";
       };
       
       btnEl.onclick = function() {
@@ -713,13 +709,13 @@ function selectMoveByTeacher(key) {
   // กรองตามความยาก และ สาระวิชาที่ครูต้องการสอนคาบนี้
   // และไม่เอาโจทย์ที่ถูกใช้ไปแล้วในรอบนี้
   let filtered = questionsList.filter(q => {
-    // 1. ข้ามคำถามที่ถูกใช้ไปแล้วในรอบการสู้ครั้งนี้
+    // 0. ข้ามคำถามที่ถูกใช้ไปแล้วในรอบการสู้ครั้งนี้
     if (usedQuestionIds.has(q.id)) return false;
     
-    // 2. ตรวจสอบความยากของท่า
+    // 1. ตรวจสอบความยากของท่า
     if (q.difficulty !== chosenMove.difficulty) return false;
     
-    // 3. ตรวจสอบความสอดคล้องกับสาระวิชาที่ครูเลือก
+    // 2. ตรวจสอบความสอดคล้องกับสาระวิชาที่ครูเลือก
     if (activeSubject === "biology") return q.topic.includes("ชีววิทยา");
     if (activeSubject === "chemistry") return q.topic.includes("เคมี");
     if (activeSubject === "physics") return q.topic.includes("ฟิสิกส์");
@@ -807,22 +803,22 @@ function renderProjectorQuestion() {
     optEl.style.textAlign = "left";
     optEl.style.padding = "10px 16px";
     optEl.style.fontSize = "1.1rem";
-    optEl.style.border = "1px solid var(--border-light);
-    optEl.style.background = "rgba(0,0,0,0.4);
+    optEl.style.border = "1px solid var(--border-light)";
+    optEl.style.background = "rgba(0,0,0,0.4)";
     optEl.style.cursor = "pointer";
     optEl.style.color = "white";
     optEl.style.borderRadius = "12px";
     optEl.style.transition = "all 0.2s ease";
     
     optEl.onmouseover = () => {
-      optEl.style.borderColor = "var(--neon-cyan);
-      optEl.style.boxShadow = "0 0 15px rgba(0, 243, 255, 0.35);
-      optEl.style.transform = "translateY(-1px);
+      optEl.style.borderColor = "var(--neon-cyan)";
+      optEl.style.boxShadow = "0 0 15px rgba(0, 243, 255, 0.35)";
+      optEl.style.transform = "translateY(-1px)";
     };
     optEl.onmouseout = () => {
-      optEl.style.borderColor = "var(--border-light);
+      optEl.style.borderColor = "var(--border-light)";
       optEl.style.boxShadow = "none";
-      optEl.style.transform = "translateY(0);
+      optEl.style.transform = "translateY(0)";
     };
     
     optEl.onclick = () => {
@@ -845,7 +841,7 @@ function startProjectorTimer() {
   const timerValEl = document.getElementById("proj-timer-val");
   if (timerValEl) {
     timerValEl.textContent = `${quizSecondsLeft}s`;
-    timerValEl.style.color = "var(--neon-red);
+    timerValEl.style.color = "var(--neon-red)";
   }
   
   quizTimerInterval = setInterval(() => {
@@ -901,20 +897,16 @@ function resolveClassroomDirectChoice(chosenIdx) {
         const playerSpriteEl = document.getElementById("battle-player-sprite");
         if (playerSpriteEl) {
           playerSpriteEl.classList.add("player-attack-dash");
-          playerSpriteEl.classList.replace("hero-idle", "hero-attack");
-          setTimeout(() => {
-            playerSpriteEl.classList.remove("player-attack-dash");
-            playerSpriteEl.classList.replace("hero-attack", "hero-idle");
-          }, 500);
+          setTimeout(() => playerSpriteEl.classList.remove("player-attack-dash"), 500);
         }
         
-        shootCombatProjectile(true, "rgba(100,100,100,0.3), () => {
+        shootCombatProjectile(true, "rgba(100,100,100,0.3)", () => {
           triggerDamageEffect(true, "MISS!");
           updateBattleHPBars();
         });
         
         addShipLog(`มติตอบถูก! คอมโบ x${comboCount} ➔ ร่ายท่า "${activeMove.label}" แต่การโจมตี [พลาดเป้า]! (Missed)`, "alert");
-        App.showToast("💨 การโจมตีพลาดเป้า (Missed!));
+        App.showToast("💨 การโจมตีพลาดเป้า (Missed!)");
       } else {
         // โจมตีโดน -> คำนวณคริติคอล (Critical Check)
         const critChance = activeMove.critChance !== undefined ? activeMove.critChance : 0.1;
@@ -943,11 +935,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
         const playerSpriteEl = document.getElementById("battle-player-sprite");
         if (playerSpriteEl) {
           playerSpriteEl.classList.add("player-attack-dash");
-          playerSpriteEl.classList.replace("hero-idle", "hero-attack");
-          setTimeout(() => {
-            playerSpriteEl.classList.remove("player-attack-dash");
-            playerSpriteEl.classList.replace("hero-attack", "hero-idle");
-          }, 500);
+          setTimeout(() => playerSpriteEl.classList.remove("player-attack-dash"), 500);
         }
         
         shootCombatProjectile(true, activeMove.color, () => {
@@ -984,11 +972,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
       const playerSpriteEl = document.getElementById("battle-player-sprite");
       if (playerSpriteEl) {
         playerSpriteEl.classList.add("heal-bounce");
-        playerSpriteEl.classList.replace("hero-idle", "hero-attack");
-        setTimeout(() => {
-          playerSpriteEl.classList.remove("heal-bounce");
-          playerSpriteEl.classList.replace("hero-attack", "hero-idle");
-        }, 600);
+        setTimeout(() => playerSpriteEl.classList.remove("heal-bounce"), 600);
       }
       
       shootHealShieldRing(() => {
@@ -1043,7 +1027,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
         App.showToast(`✨ ปาฏิหาริย์! ติด -${finalDmg} DMG`);
       } else {
         // พลาด
-        shootCombatProjectile(true, "rgba(200,200,200,0.3), () => {
+        shootCombatProjectile(true, "rgba(200,200,200,0.3)", () => {
           triggerDamageEffect(true, "MISS!");
           updateBattleHPBars();
         });
@@ -1088,19 +1072,6 @@ function renderProjectorExplanation() {
     } else {
       statsEl.innerHTML = `มติห้องเรียนเลือกข้อ: <strong style="color:${isCorrect ? 'var(--neon-emerald)' : 'var(--neon-red)'}; font-size:1.1rem;">ข้อ ${['ก (A)','ข (B)','ค (C)','ง (D)'][chosenIdx]}</strong>`;
     }
-    
-    // ถ้าตอบผิดและกำลังจะมีบอสเทิร์น ให้แสดงข้อความเตือน
-    const bossTurnPending = localStorage.getItem(gk("sci_quest_boss_turn_pending")) === "true";
-    const nextBtn = document.getElementById("btn-proj-next-turn");
-    if (!isCorrect && bossTurnPending && nextBtn) {
-      nextBtn.textContent = "⚔️ รับมือบอสโจมตี!";
-      nextBtn.className = "btn-neon btn-neon-red";
-      nextBtn.style.animation = "logo-pulse 0.8s infinite alternate";
-    } else if (nextBtn) {
-      nextBtn.textContent = "ดำเนินการต่อไป ➔";
-      nextBtn.className = "btn-neon btn-neon-emerald";
-      nextBtn.style.animation = "";
-    }
   }
   
   const optionsGrid = document.getElementById("proj-options-grid");
@@ -1112,19 +1083,19 @@ function renderProjectorExplanation() {
     optEl.className = "glass-panel";
     optEl.style.padding = "10px 14px";
     optEl.style.fontSize = "1.1rem";
-    optEl.style.border = "1px solid var(--border-light);
-    optEl.style.background = "rgba(0,0,0,0.2);
+    optEl.style.border = "1px solid var(--border-light)";
+    optEl.style.background = "rgba(0,0,0,0.2)";
     
     if (idx === qObj.correct) {
-      optEl.style.borderColor = "var(--neon-emerald);
-      optEl.style.boxShadow = "0 0 15px rgba(0, 255, 102, 0.25);
-      optEl.style.background = "rgba(0, 255, 102, 0.05);
+      optEl.style.borderColor = "var(--neon-emerald)";
+      optEl.style.boxShadow = "0 0 15px rgba(0, 255, 102, 0.25)";
+      optEl.style.background = "rgba(0, 255, 102, 0.05)";
     } else if (idx === chosenIdx) {
-      optEl.style.borderColor = "var(--neon-red);
-      optEl.style.boxShadow = "0 0 15px rgba(255, 46, 93, 0.25);
-      optEl.style.background = "rgba(255, 46, 93, 0.05);
+      optEl.style.borderColor = "var(--neon-red)";
+      optEl.style.boxShadow = "0 0 15px rgba(255, 46, 93, 0.25)";
+      optEl.style.background = "rgba(255, 46, 93, 0.05)";
     } else {
-      optEl.style.borderColor = "var(--border-light);
+      optEl.style.borderColor = "var(--border-light)";
     }
     
     optEl.innerHTML = `
@@ -1192,9 +1163,9 @@ function startCombatCanvasLoop() {
     // Horizon glow line
     const lineGrad = combatCtx.createLinearGradient(0, 0, W, 0);
     lineGrad.addColorStop(0, "transparent");
-    lineGrad.addColorStop(0.25, "rgba(0,243,255,0.25));
-    lineGrad.addColorStop(0.5, "rgba(143,0,255,0.6));
-    lineGrad.addColorStop(0.75, "rgba(0,243,255,0.25));
+    lineGrad.addColorStop(0.25, "rgba(0,243,255,0.25)");
+    lineGrad.addColorStop(0.5, "rgba(143,0,255,0.6)");
+    lineGrad.addColorStop(0.75, "rgba(0,243,255,0.25)");
     lineGrad.addColorStop(1, "transparent");
     combatCtx.beginPath();
     combatCtx.moveTo(0, groundY);
@@ -1202,13 +1173,13 @@ function startCombatCanvasLoop() {
     combatCtx.strokeStyle = lineGrad;
     combatCtx.lineWidth = 2;
     combatCtx.shadowBlur = 12;
-    combatCtx.shadowColor = "rgba(143,0,255,0.8);
+    combatCtx.shadowColor = "rgba(143,0,255,0.8)";
     combatCtx.stroke();
     combatCtx.shadowBlur = 0;
     
     // Perspective grid on ground
     combatCtx.globalAlpha = 0.06;
-    combatCtx.strokeStyle = "rgba(0,243,255,1);
+    combatCtx.strokeStyle = "rgba(0,243,255,1)";
     combatCtx.lineWidth = 1;
     const vx = W * 0.5, vy = groundY;
     for (let i = 0; i <= 10; i++) {
@@ -1283,7 +1254,7 @@ function startCombatCanvasLoop() {
         combatCtx.strokeStyle = `rgba(0, 255, 102, ${(1 - s.progress) * 0.9})`;
         combatCtx.lineWidth = 5;
         combatCtx.shadowBlur = 20;
-        combatCtx.shadowColor = "rgba(0, 255, 102, 0.8);
+        combatCtx.shadowColor = "rgba(0, 255, 102, 0.8)";
         combatCtx.stroke();
         combatCtx.beginPath();
         combatCtx.arc(currentX, currentY, radius * 0.7, 0, Math.PI * 2);
@@ -1317,7 +1288,7 @@ function startCombatCanvasLoop() {
         // Bright white core
         combatCtx.beginPath();
         combatCtx.arc(currentX, currentY, s.size * 0.4, 0, Math.PI * 2);
-        combatCtx.fillStyle = "rgba(255,255,255,0.95);
+        combatCtx.fillStyle = "rgba(255,255,255,0.95)";
         combatCtx.shadowBlur = 10;
         combatCtx.shadowColor = "white";
         combatCtx.fill();
@@ -1423,7 +1394,7 @@ function shootHealShieldRing(onHealCallback) {
     progress: 0,
     speed: 0.04,
     size: 12,
-    color: "rgba(0, 255, 102, 0.7),
+    color: "rgba(0, 255, 102, 0.7)",
     isShield: true,
     isBurst: false,
     onHit: onHealCallback
@@ -1512,7 +1483,7 @@ function updateStudentControllerUI() {
     
     const statusLabel = document.getElementById("rem-voted-status-lbl");
     if (statusLabel) {
-      statusLabel.style.color = "var(--neon-cyan);
+      statusLabel.style.color = "var(--neon-cyan)";
       statusLabel.style.fontSize = "1.05rem";
       statusLabel.style.lineHeight = "1.6";
       statusLabel.innerHTML = `
@@ -1591,21 +1562,21 @@ function renderStudentQuizButtons() {
     btn.style.width = "100%";
     btn.style.textAlign = "left";
     btn.style.fontSize = "1.05rem";
-    btn.style.border = "1px solid var(--border-light);
+    btn.style.border = "1px solid var(--border-light)";
     
     if (myResponse !== undefined && myResponse !== null) {
       btn.disabled = true;
       if (myResponse === idx) {
-        btn.style.background = "var(--neon-cyan);
-        btn.style.color = "var(--text-dark);
-        btn.style.boxShadow = "0 0 10px var(--neon-cyan-glow);
-        btn.style.borderColor = "var(--neon-cyan);
+        btn.style.background = "var(--neon-cyan)";
+        btn.style.color = "var(--text-dark)";
+        btn.style.boxShadow = "0 0 10px var(--neon-cyan-glow)";
+        btn.style.borderColor = "var(--neon-cyan)";
       } else {
-        btn.style.background = "rgba(0,0,0,0.5);
+        btn.style.background = "rgba(0,0,0,0.5)";
         btn.style.opacity = "0.45";
       }
     } else {
-      btn.style.background = "rgba(0,0,0,0.45);
+      btn.style.background = "rgba(0,0,0,0.45)";
       btn.style.color = "white";
       
       btn.onclick = function() {
@@ -1621,10 +1592,10 @@ function renderStudentQuizButtons() {
   const statusLabel = document.getElementById("rem-answer-status-lbl");
   if (statusLabel) {
     if (myResponse !== undefined && myResponse !== null) {
-      statusLabel.style.color = "var(--neon-emerald);
+      statusLabel.style.color = "var(--neon-emerald)";
       statusLabel.textContent = `ส่งคำตอบข้อ ${prefixes[myResponse].replace('.','')} แล้ว! รอการเฉลยหน้าห้องเรียน`;
     } else {
-      statusLabel.style.color = "var(--neon-cyan);
+      statusLabel.style.color = "var(--neon-cyan)";
       statusLabel.textContent = "วิเคราะห์ให้ดี แล้วกดคลิกเลือกตัวเลือกกู้พลังงาน!";
     }
   }
@@ -1654,21 +1625,21 @@ function renderStudentExplanationPanel() {
   
   if (myResponse === undefined || myResponse === null) {
     iconEl.textContent = "⏱️";
-    iconEl.style.color = "var(--neon-amber);
+    iconEl.style.color = "var(--neon-amber)";
     titleEl.textContent = "คุณส่งคำตอบไม่ทันเวลา!";
-    titleEl.style.color = "var(--neon-amber);
+    titleEl.style.color = "var(--neon-amber)";
   } 
   else if (isCorrect) {
     iconEl.textContent = "✓";
-    iconEl.style.color = "var(--neon-emerald);
+    iconEl.style.color = "var(--neon-emerald)";
     titleEl.textContent = "คำตอบของคุณถูกต้อง!";
-    titleEl.style.color = "var(--neon-emerald);
+    titleEl.style.color = "var(--neon-emerald)";
   } 
   else {
     iconEl.textContent = "✗";
-    iconEl.style.color = "var(--neon-red);
+    iconEl.style.color = "var(--neon-red)";
     titleEl.textContent = "คำตอบของคุณยังไม่ถูก!";
-    titleEl.style.color = "var(--neon-red);
+    titleEl.style.color = "var(--neon-red)";
   }
   
   document.getElementById("rem-exp-fact-text").innerHTML = `
@@ -1909,8 +1880,6 @@ function executeBossAttack() {
   // ตรวจสอบความแม่นยำ
   const isBossHit = Math.random() <= bossMove.acc;
   
-  let actualDmg = 0;
-  
   if (!isBossHit) {
     // บอสโจมตีพลาด
     addShipLog(`🍃 บอสใช้ "${bossMove.name}" แต่โจมตีพลาด!`, "system");
@@ -1934,10 +1903,9 @@ function executeBossAttack() {
     updateBattleHPBars();
     addShipLog(`💜 บอสใช้ "${bossMove.name}" ดูดพลังชีวิต +${healAmt} HP`, "alert");
     App.showToast(`💜 บอสใช้ ${bossMove.name} ฟื้น HP`);
-    actualDmg = 0;
   } else {
     // บอสโจมตีโดน
-    actualDmg = bossMove.dmg;
+    const actualDmg = bossMove.dmg;
     scoreObj.hp = Math.max(0, scoreObj.hp - actualDmg);
     App.saveStudentScore(scoreObj);
     
@@ -1974,7 +1942,7 @@ function executeBossAttack() {
   // เช็คว่าผู้เล่นตายไหม
   if (scoreObj.hp <= 0) {
     setTimeout(() => {
-      window.SoundFX.playGameOver();
+      window.SoundFX.playLevelUp();
       App.setGamePhase("gameover");
     }, 600);
   } else {
