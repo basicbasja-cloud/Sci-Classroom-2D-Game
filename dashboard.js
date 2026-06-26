@@ -225,7 +225,7 @@ function renderQuestionsView() {
   statusEl.style.cssText = "font-size: 0.95rem; color: var(--text-primary); margin-bottom: 5px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-light); padding-bottom: 8px;";
   statusEl.innerHTML = `
     <span>🔍 ผลลัพธ์การกรอง: พบข้อสอบ <strong style="color: var(--neon-cyan);">${filteredQuestions.length}</strong> ข้อ (จากทั้งหมดในชั้นเรียน ${questions.length} ข้อ)</span>
-    <span style="font-size: 0.8rem; color: var(--text-muted);">ระดับชั้น: ${GRADE_LABELS[currentGrade].split(" (")[0]}</span>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">ระดับชั้น: ${(GRADE_LABELS[currentGrade] || currentGrade).split(" (")[0]}</span>
   `;
   listContainer.appendChild(statusEl);
 
@@ -261,7 +261,7 @@ function renderQuestionsView() {
       <div class="q-card-header" style="border-bottom: 1px solid var(--border-light); padding-bottom: 10px; margin-bottom: 10px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <div class="q-card-badge-row" style="display:flex; gap:6px;">
-            <span class="badge-q" style="background:rgba(0,243,255,0.1); color:var(--neon-cyan); border:1px solid rgba(0,243,255,0.2); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${GRADE_LABELS[currentGrade].split(" (")[0]}</span>
+            <span class="badge-q" style="background:rgba(0,243,255,0.1); color:var(--neon-cyan); border:1px solid rgba(0,243,255,0.2); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${(GRADE_LABELS[currentGrade] || currentGrade).split(" (")[0]}</span>
             <span class="badge-q" style="background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid var(--border-light); padding:2px 8px; border-radius:4px; font-size:0.75rem;">${q.topic}</span>
             <span class="badge-q" style="background:${diffBg}; color:${diffColor}; border:1px solid ${diffColor}44; padding:2px 8px; border-radius:4px; font-size:0.75rem;">ความยาก: ${diffText}</span>
           </div>
