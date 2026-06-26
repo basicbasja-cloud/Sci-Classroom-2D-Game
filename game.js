@@ -1797,6 +1797,8 @@ function initGameMultiplayer() {
   if (btnBackHome) {
     btnBackHome.onclick = function() {
       SoundFX.playClick();
+      // รีเซ็ต level confirmation เพื่อให้กลับมาเห็นหน้าเลือกชั้นเรียนอีกครั้ง
+      localStorage.removeItem(gk("sci_quest_level_confirmed"));
       App.showView("home-view");
     };
   }
