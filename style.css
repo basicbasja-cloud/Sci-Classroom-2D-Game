@@ -1737,40 +1737,41 @@ textarea.input-cyber {
 }
 
 /* ==========================================================================
-   SPRITE SHEET ANIMATIONS (4×4 Grid, 128px frames on 512px sheets)
+   SPRITE SHEET ANIMATIONS — Dynamic frame sizes (adapted to new pixel art)
+   Uses 56px frame width (224/4) and 64px frame height (320/5)
    ========================================================================== */
 
-/* Hero idle animation - cycles through 4 columns on row 0 (128px frame width) */
+/* Hero idle animation - row 0, 4 frames (56px wide each) */
 @keyframes hero-idle {
   0% { background-position: 0 0; }
-  25% { background-position: -128px 0; }
-  50% { background-position: -256px 0; }
-  75% { background-position: -384px 0; }
+  25% { background-position: -56px 0; }
+  50% { background-position: -112px 0; }
+  75% { background-position: -168px 0; }
   100% { background-position: 0 0; }
 }
 .hero-idle {
   animation: hero-idle 0.8s step-end infinite;
 }
 
-/* Hero attack - row 1 (y offset = -128px) */
+/* Hero attack - row 1 (56px wide frames, y = -64px) */
 @keyframes hero-attack {
-  0% { background-position: 0 -128px; }
-  25% { background-position: -128px -128px; }
-  50% { background-position: -256px -128px; }
-  75% { background-position: -384px -128px; }
-  100% { background-position: 0 -128px; }
+  0% { background-position: 0 -64px; }
+  25% { background-position: -56px -64px; }
+  50% { background-position: -112px -64px; }
+  75% { background-position: -168px -64px; }
+  100% { background-position: 0 -64px; }
 }
 .hero-attack {
   animation: hero-attack 0.5s step-end 1;
 }
 
-/* Hero hurt - row 3 (y offset = -384px) */
+/* Hero hurt - row 2 (56px wide frames, y = -128px) */
 @keyframes hero-hurt {
-  0% { background-position: 0 -384px; }
-  25% { background-position: -128px -384px; }
-  50% { background-position: -256px -384px; }
-  75% { background-position: -384px -384px; }
-  100% { background-position: 0 -384px; }
+  0% { background-position: 0 -128px; }
+  25% { background-position: -56px -128px; }
+  50% { background-position: -112px -128px; }
+  75% { background-position: -168px -128px; }
+  100% { background-position: 0 -128px; }
 }
 .hero-hurt {
   animation: hero-hurt 0.4s step-end 1;
@@ -1877,38 +1878,7 @@ textarea.input-cyber {
   overflow-y: auto;
 }
 
-/* ==========================================================================
-   DYNAMIC ZONE BATTLE BACKGROUNDS (5 STAGE CONFIGURATIONS)
-   ========================================================================== */
-.battle-bg-reactor {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(9, 9, 15, 0.95) 75%),
-              radial-gradient(circle at 15% 30%, rgba(239, 68, 68, 0.25) 0%, transparent 60%) !important;
-  border-bottom: 2px solid rgba(239, 68, 68, 0.25) !important;
-}
-
-.battle-bg-water {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(9, 9, 15, 0.95) 75%),
-              radial-gradient(circle at 15% 30%, rgba(6, 182, 212, 0.25) 0%, transparent 60%) !important;
-  border-bottom: 2px solid rgba(6, 182, 212, 0.25) !important;
-}
-
-.battle-bg-botanic {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(9, 9, 15, 0.95) 75%),
-              radial-gradient(circle at 15% 30%, rgba(16, 185, 129, 0.25) 0%, transparent 60%) !important;
-  border-bottom: 2px solid rgba(16, 185, 129, 0.25) !important;
-}
-
-.battle-bg-genetics {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(9, 9, 15, 0.95) 75%),
-              radial-gradient(circle at 15% 30%, rgba(139, 92, 246, 0.25) 0%, transparent 60%) !important;
-  border-bottom: 2px solid rgba(139, 92, 246, 0.25) !important;
-}
-
-.battle-bg-bridge {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(9, 9, 15, 0.95) 75%),
-              radial-gradient(circle at 50% 50%, rgba(143, 0, 255, 0.25) 0%, transparent 70%) !important;
-  border-bottom: 2px solid rgba(245, 158, 11, 0.25) !important;
-}
+/* Zone backgrounds now defined in ENHANCED EFFECTS section below */
 
 /* Battle Action Screen Canvas overlay */
 .rpg-battle-canvas {
@@ -2076,5 +2046,252 @@ textarea.input-cyber {
 /* Projector header overrides */
 #projector-view, #student-controller-view {
   height: calc(100vh - 63px);
+}
+
+/* ==========================================================================
+   ENHANCED EFFECTS — NEW ERA JRPG ANIMATIONS
+   Each action has independent visual identity
+   ========================================================================== */
+
+/* Screen Flash Overlay — fades in then out */
+@keyframes flash-fade {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Floating text (boss move name) */
+@keyframes float-up {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+
+/* Combo Fire — pulsing flame effect around combo badge */
+@keyframes combo-fire {
+  0% { 
+    border-color: rgba(255, 174, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 174, 0, 0.4), 0 0 5px rgba(255, 50, 0, 0.2);
+    background: rgba(255, 174, 0, 0.08);
+  }
+  25% {
+    border-color: rgba(255, 100, 0, 0.8);
+    box-shadow: 0 0 20px rgba(255, 174, 0, 0.6), 0 0 10px rgba(255, 50, 0, 0.4);
+    background: rgba(255, 100, 0, 0.12);
+  }
+  50% { 
+    border-color: rgba(255, 174, 0, 0.7);
+    box-shadow: 0 0 15px rgba(255, 174, 0, 0.5), 0 0 8px rgba(255, 50, 0, 0.3);
+    background: rgba(255, 174, 0, 0.10);
+  }
+  75% {
+    border-color: rgba(255, 50, 0, 0.9);
+    box-shadow: 0 0 25px rgba(255, 100, 0, 0.7), 0 0 15px rgba(255, 0, 0, 0.5);
+    background: rgba(255, 50, 0, 0.15);
+  }
+  100% { 
+    border-color: rgba(255, 174, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 174, 0, 0.4), 0 0 5px rgba(255, 50, 0, 0.2);
+    background: rgba(255, 174, 0, 0.08);
+  }
+}
+
+/* Heavy Screen Shake — for critical hits */
+@keyframes screen-shake-heavy {
+  0%, 100% { transform: translateX(0); }
+  8% { transform: translateX(-12px) translateY(-5px); }
+  16% { transform: translateX(12px) translateY(5px); }
+  24% { transform: translateX(-10px) translateY(-4px); }
+  32% { transform: translateX(10px) translateY(4px); }
+  40% { transform: translateX(-8px) translateY(-3px); }
+  48% { transform: translateX(8px) translateY(3px); }
+  56% { transform: translateX(-6px) translateY(-2px); }
+  64% { transform: translateX(6px) translateY(2px); }
+  72% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+  88% { transform: translateX(-2px); }
+  96% { transform: translateX(2px); }
+}
+.shake-effect-heavy {
+  animation: screen-shake-heavy 0.6s ease-in-out;
+}
+
+/* Light Screen Shake — for heals */
+@keyframes screen-shake-light {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+}
+.shake-effect-light {
+  animation: screen-shake-light 0.3s ease-in-out;
+}
+
+/* Hero Attack variations — unique per skill */
+
+/* Laser Attack: Quick forward thrust with horizontal trail */
+@keyframes hero-attack-laser {
+  0% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(35px, -10px) scale(1.08); filter: brightness(1.3) hue-rotate(-10deg); }
+  50% { transform: translate(55px, -20px) scale(1.15); filter: brightness(1.5) hue-rotate(-20deg); }
+  75% { transform: translate(20px, -5px) scale(1.05); filter: brightness(1.2); }
+  100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+}
+.hero-attack-laser {
+  animation: hero-attack-laser 0.45s ease-in-out;
+}
+
+/* EMP Attack: Wider lunge with spin effect */
+@keyframes hero-attack-emp {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  20% { transform: translate(20px, -10px) rotate(-5deg) scale(1.05); filter: brightness(1.2) hue-rotate(10deg); }
+  40% { transform: translate(50px, -25px) rotate(-10deg) scale(1.12); filter: brightness(1.4) hue-rotate(20deg); }
+  60% { transform: translate(35px, -15px) rotate(-5deg) scale(1.08); filter: brightness(1.3); }
+  80% { transform: translate(15px, -5px) rotate(-2deg) scale(1.02); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1); filter: brightness(1); }
+}
+.hero-attack-emp {
+  animation: hero-attack-emp 0.5s ease-in-out;
+}
+
+/* Quantum Attack: Leap upward then slam down */
+@keyframes hero-attack-quantum {
+  0% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(15px, -30px) scale(1.1); filter: brightness(1.3) hue-rotate(30deg); }
+  40% { transform: translate(30px, -55px) scale(1.2); filter: brightness(1.6) hue-rotate(45deg); }
+  55% { transform: translate(40px, -40px) scale(1.25); filter: brightness(1.8); }
+  70% { transform: translate(50px, 10px) scale(1.15); filter: brightness(1.4); }
+  85% { transform: translate(25px, 5px) scale(1.05); }
+  100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+}
+.hero-attack-quantum {
+  animation: hero-attack-quantum 0.55s ease-in-out;
+}
+
+/* Hero Hurt variations — unique per boss attack type */
+
+/* Shockwave Hit: Knock back with orange tint */
+@keyframes hero-hurt-shockwave {
+  0% { transform: translate(0, 0); filter: brightness(1); }
+  15% { transform: translate(-15px, 5px); filter: brightness(0.6) sepia(0.5) hue-rotate(-15deg); }
+  30% { transform: translate(-25px, 10px); filter: brightness(0.8) sepia(0.3); }
+  50% { transform: translate(-10px, 3px); filter: brightness(0.9); }
+  100% { transform: translate(0, 0); filter: brightness(1); }
+}
+.hero-hurt-shockwave {
+  animation: hero-hurt-shockwave 0.45s ease-in-out;
+}
+
+/* Poison Hit: Stagger with green/purple tint */
+@keyframes hero-hurt-poison {
+  0% { transform: translate(0, 0); filter: brightness(1) saturate(1); }
+  10% { transform: translate(-8px, 3px); filter: brightness(0.7) hue-rotate(60deg) saturate(0.6); }
+  25% { transform: translate(-15px, 0); filter: brightness(0.8) hue-rotate(45deg) saturate(0.7); }
+  45% { transform: translate(-5px, -3px); filter: brightness(0.9) hue-rotate(30deg); }
+  65% { transform: translate(-3px, 0); filter: brightness(0.95); }
+  100% { transform: translate(0, 0); filter: brightness(1) saturate(1); }
+}
+.hero-hurt-poison {
+  animation: hero-hurt-poison 0.5s ease-in-out;
+}
+
+/* Lightning Hit: Violent shake with white flash */
+@keyframes hero-hurt-lightning {
+  0% { transform: translate(0, 0); filter: brightness(1); }
+  5% { transform: translate(-20px, -5px); filter: brightness(2.5); }
+  10% { transform: translate(20px, 5px); filter: brightness(1.5); }
+  18% { transform: translate(-15px, -3px); filter: brightness(2.0); }
+  25% { transform: translate(15px, 3px); filter: brightness(1.3); }
+  35% { transform: translate(-10px, -2px); filter: brightness(1.1); }
+  50% { transform: translate(5px, 0); filter: brightness(1.0); }
+  75% { transform: translate(-3px, 0); }
+  100% { transform: translate(0, 0); filter: brightness(1); }
+}
+.hero-hurt-lightning {
+  animation: hero-hurt-lightning 0.4s ease-in-out;
+}
+
+/* Drain Hit: Lean forward with red pulse */
+@keyframes hero-hurt-drain {
+  0% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+  15% { transform: translate(5px, -5px) scale(0.95); filter: brightness(0.8) hue-rotate(-20deg) saturate(1.2); }
+  30% { transform: translate(10px, -8px) scale(0.9); filter: brightness(0.6) hue-rotate(-30deg) saturate(0.8); }
+  50% { transform: translate(5px, -3px) scale(0.95); filter: brightness(0.8); }
+  75% { transform: translate(2px, 0) scale(1); filter: brightness(0.9); }
+  100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+}
+.hero-hurt-drain {
+  animation: hero-hurt-drain 0.5s ease-in-out;
+}
+
+/* Victory celebration particle effect */
+@keyframes victory-particle-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100px) rotate(360deg); opacity: 0; }
+}
+.victory-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: victory-particle-fall 2s linear forwards;
+}
+
+/* Damage number enhanced style for crit */
+.damage-number-crit {
+  font-size: 2.8rem !important;
+  color: #ffd700 !important;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.9), 0 0 40px rgba(255, 215, 0, 0.5) !important;
+}
+
+/* ==========================================================================
+   ENHANCED ZONE BATTLE BACKGROUNDS — 5 unique atmospheric zones
+   ========================================================================== */
+
+/* Reactor Zone (node1-2): Fiery ember particles */
+.battle-bg-reactor {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(9, 9, 15, 0.95) 75%),
+              radial-gradient(circle at 15% 30%, rgba(239, 68, 68, 0.35) 0%, transparent 60%) !important;
+  border-bottom: 2px solid rgba(239, 68, 68, 0.35) !important;
+}
+.battle-bg-reactor::before {
+  content: '';
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(to right, transparent, rgba(239, 68, 68, 0.3), transparent);
+  pointer-events: none;
+}
+
+/* Water Zone (node3-4): Cool blue aqueous */
+.battle-bg-water {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(9, 9, 15, 0.95) 75%),
+              radial-gradient(circle at 15% 30%, rgba(6, 182, 212, 0.35) 0%, transparent 60%) !important;
+  border-bottom: 2px solid rgba(6, 182, 212, 0.35) !important;
+}
+
+/* Botanic Zone (node5-6): Verdant green */
+.battle-bg-botanic {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(9, 9, 15, 0.95) 75%),
+              radial-gradient(circle at 15% 30%, rgba(16, 185, 129, 0.35) 0%, transparent 60%) !important;
+  border-bottom: 2px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+/* Genetics Zone (node7-8): Mystical purple */
+.battle-bg-genetics {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(9, 9, 15, 0.95) 75%),
+              radial-gradient(circle at 15% 30%, rgba(139, 92, 246, 0.35) 0%, transparent 60%) !important;
+  border-bottom: 2px solid rgba(139, 92, 246, 0.35) !important;
+}
+
+/* Bridge Zone (node9-10): Cosmic gold-purple */
+.battle-bg-bridge {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(9, 9, 15, 0.95) 75%),
+              radial-gradient(circle at 50% 50%, rgba(143, 0, 255, 0.35) 0%, transparent 70%) !important;
+  border-bottom: 2px solid rgba(245, 158, 11, 0.35) !important;
 }
 

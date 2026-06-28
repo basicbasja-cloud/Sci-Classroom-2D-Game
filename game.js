@@ -560,16 +560,25 @@ function setupBattleArenaUI() {
   document.getElementById("battle-enemy-name").textContent = `${activeEnemy.name} (คลื่นที่ ${enemyIndex + 1}/${nodeEnemies.length})`;
   document.getElementById("battle-enemy-subject").textContent = `สาระวิชา: ${activeEnemy.subject}`;
   
-  // อัปเดต Sprite ตัวละครหลัก (Sprite Sheet 4×4 พร้อม Frame Animation)
+  // อัปเดต Sprite ตัวละครหลัก (Sprite Sheet พร้อม Frame Animation)
   const playerSpriteEl = document.getElementById("battle-player-sprite");
   if (playerSpriteEl) {
     playerSpriteEl.classList.add("hero-idle", "sprite-float");
     getTransparentSprite("assets/player_hero.png", function(url) {
-      playerSpriteEl.innerHTML = "";
-      playerSpriteEl.style.backgroundImage = `url('${url}')`;
-      playerSpriteEl.style.backgroundSize = "512px 512px";
-      playerSpriteEl.style.backgroundRepeat = "no-repeat";
-      playerSpriteEl.style.backgroundPosition = "0 0";
+      const img = new Image();
+      img.onload = function() {
+        const w = img.width;
+        const h = img.height;
+        playerSpriteEl.innerHTML = "";
+        playerSpriteEl.style.backgroundImage = `url('${url}')`;
+        playerSpriteEl.style.backgroundSize = `${w}px ${h}px`;
+        playerSpriteEl.style.backgroundRepeat = "no-repeat";
+        playerSpriteEl.style.backgroundPosition = "0 0";
+        // Store sprite dimensions for animation
+        playerSpriteEl.dataset.spriteW = w;
+        playerSpriteEl.dataset.spriteH = h;
+      };
+      img.src = url;
     });
   }
   
@@ -632,14 +641,14 @@ function updateBattleHPBars() {
   const totalCount = Object.keys(modules).length || 10;
   document.getElementById("hud-correct-val").textContent = `${repairedCount}/${totalCount}`;
   
-  // Update or create combo badge
+  // Update or create combo badge (Enhanced — fire animation)
   const comboCount = parseInt(localStorage.getItem(gk("sci_quest_combo_count"))) || 0;
   let comboBadge = document.getElementById("battle-combo-badge");
   if (!comboBadge) {
     // Create badge dynamically if not in HTML
     comboBadge = document.createElement("div");
     comboBadge.id = "battle-combo-badge";
-    comboBadge.style.cssText = "position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 110; display: none; background: rgba(255,174,0,0.15); border: 1px solid var(--neon-amber); border-radius: 20px; padding: 3px 16px; font-weight: 800; font-size: 0.9rem; color: var(--neon-amber); box-shadow: 0 0 15px rgba(255,174,0,0.4); white-space: nowrap; animation: logo-pulse 1.2s infinite alternate;";
+    comboBadge.style.cssText = "position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 110; display: none; background: rgba(255,174,0,0.15); border: 1px solid var(--neon-amber); border-radius: 20px; padding: 3px 16px; font-weight: 800; font-size: 0.9rem; color: var(--neon-amber); box-shadow: 0 0 15px rgba(255,174,0,0.4); white-space: nowrap;";
     comboBadge.innerHTML = `🔥 COMBO x<span id="battle-combo-count">0</span>`;
     const battleWindow = document.querySelector(".rpg-battle-window");
     if (battleWindow) battleWindow.appendChild(comboBadge);
@@ -649,8 +658,13 @@ function updateBattleHPBars() {
     if (comboCount >= 2) {
       comboBadge.style.display = "block";
       comboCountEl.textContent = comboCount;
+      // Fire animation intensity scales with combo
+      const fireIntensity = Math.min(1, (comboCount - 1) * 0.2);
+      comboBadge.style.animation = `combo-fire ${1.5 - fireIntensity * 0.5}s infinite alternate`;
+      comboBadge.style.boxShadow = `0 0 ${10 + fireIntensity * 20}px rgba(255,174,0,${0.3 + fireIntensity * 0.5}), 0 0 ${5 + fireIntensity * 15}px rgba(255,50,0,${fireIntensity * 0.4})`;
     } else {
       comboBadge.style.display = "none";
+      comboBadge.style.animation = '';
     }
   }
 }
@@ -918,9 +932,31 @@ function resolveClassroomDirectChoice(chosenIdx) {
     const comboCount = (parseInt(localStorage.getItem(gk("sci_quest_combo_count"))) || 0) + 1;
     localStorage.setItem(gk("sci_quest_combo_count"), comboCount);
     
+    // Play combo sound for combo >= 2
+    if (comboCount >= 2) {
+      window.SoundFX.playComboUp(comboCount);
+    }
+    
     if (activeMove.type === "attack") {
       const baseDmg = activeMove.dmg;
       const comboMultiplier = 1.0 + Math.min(0.5, (comboCount - 1) * 0.1); // สูงสุด +50% ที่ combo x6
+      
+      // Map player skill key to actionType for unique projectile
+      const skillActionMap = {
+        laser: 'laser',
+        emp: 'emp',
+        quantum: 'quantum'
+      };
+      const playerActionType = skillActionMap[activeMove.key] || 'laser';
+      
+      // เล่นเสียงเฉพาะของแต่ละท่า
+      const skillSoundMap = {
+        laser: 'playLaserBeam',
+        emp: 'playEMPBlast',
+        quantum: 'playQuantumStorm'
+      };
+      const soundFn = skillSoundMap[activeMove.key];
+      if (window.SoundFX[soundFn]) window.SoundFX[soundFn]();
       
       // คำนวณอัตราความแม่นยำ (Accuracy Check)
       const accuracy = activeMove.accuracy !== undefined ? activeMove.accuracy : 1.0;
@@ -928,7 +964,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
       
       if (!isHit) {
         // โจมตีพลาด (Missed)
-        window.SoundFX.playPlayerDamage(); // เสียงพลาดเลี่ยนมาใช้คลื่นพัง
+        window.SoundFX.playMiss();
         
         // แอนิเมชันโจมตีของฝั่งผู้เล่น
         const playerSpriteEl = document.getElementById("battle-player-sprite");
@@ -937,8 +973,8 @@ function resolveClassroomDirectChoice(chosenIdx) {
           setTimeout(() => playerSpriteEl.classList.remove("player-attack-dash"), 500);
         }
         
-        shootCombatProjectile(true, "rgba(100,100,100,0.3)", () => {
-          triggerDamageEffect(true, "MISS!");
+        shootCombatProjectile(true, 'miss', () => {
+          triggerDamageEffect(true, 'MISS!', 'miss');
           updateBattleHPBars();
         });
         
@@ -966,19 +1002,26 @@ function resolveClassroomDirectChoice(chosenIdx) {
         scoreObj.correct += 1;
         App.saveStudentScore(scoreObj);
         
-        window.SoundFX.playSlash();
-        
-        // แอนิเมชันโจมตีของฝั่งผู้เล่น
-        const playerSpriteEl = document.getElementById("battle-player-sprite");
-        if (playerSpriteEl) {
-          playerSpriteEl.classList.add("player-attack-dash");
-          setTimeout(() => playerSpriteEl.classList.remove("player-attack-dash"), 500);
+        if (isCrit) {
+          window.SoundFX.playCritHit();
         }
         
-        shootCombatProjectile(true, activeMove.color, () => {
-          triggerDamageEffect(true, isCrit ? `💥 CRIT! -${finalDmg}` : `-${finalDmg}`);
+        // Unique attack animation per skill type
+        const playerSpriteEl = document.getElementById("battle-player-sprite");
+        if (playerSpriteEl) {
+          playerSpriteEl.classList.remove("player-attack-dash", "hero-attack-laser", "hero-attack-emp", "hero-attack-quantum");
+          const attackClassMap = { laser: 'hero-attack-laser', emp: 'hero-attack-emp', quantum: 'hero-attack-quantum' };
+          playerSpriteEl.classList.add(attackClassMap[activeMove.key] || 'player-attack-dash');
+          setTimeout(() => {
+            playerSpriteEl.classList.remove(attackClassMap[activeMove.key] || 'player-attack-dash');
+          }, 550);
+        }
+        
+        // Fire unique projectile per skill type
+        shootCombatProjectile(true, playerActionType, () => {
+          triggerDamageEffect(true, finalDmg, isCrit ? 'crit' : 'normal');
           
-          // แอนิเมชันได้รับความเสียหายของฝั่งศัตรู
+          // แอนิเมชันได้รับความเสียหายของฝั่งศัตรู — unique per skill
           const enemySpriteEl = document.getElementById("battle-enemy-sprite");
           if (enemySpriteEl) {
             enemySpriteEl.classList.add("damaged-shake");
@@ -1003,7 +1046,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
       scoreObj.correct += 1;
       App.saveStudentScore(scoreObj);
       
-      window.SoundFX.playChest();
+      window.SoundFX.playNanobotHeal();
       
       // แอนิเมชันรักษาตัวของฝั่งผู้เล่น
       const playerSpriteEl = document.getElementById("battle-player-sprite");
@@ -1013,7 +1056,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
       }
       
       shootHealShieldRing(() => {
-        triggerDamageEffect(false, `+${healVal} HP`);
+        triggerDamageEffect(false, healVal, 'heal');
         updateBattleHPBars();
       });
       
@@ -1037,15 +1080,21 @@ function resolveClassroomDirectChoice(chosenIdx) {
       const desperateDmgMultiplier = 0.30;
       const isDesperateHit = Math.random() <= desperateAccuracy;
       
-      // แอนิเมชันโจมตีของฝั่งผู้เล่น (แสดงเฉพาะตอบผิด ไม่ใช่หมดเวลา)
+      // Map skill to action type
+      const skillActionMap = { laser: 'laser', emp: 'emp', quantum: 'quantum' };
+      const playerActionType = skillActionMap[activeMove.key] || 'laser';
+      
+      // Unique attack animation per skill type (wrong answer desperate hit)
       const playerSpriteEl = document.getElementById("battle-player-sprite");
       if (playerSpriteEl) {
-        playerSpriteEl.classList.add("player-attack-dash");
+        playerSpriteEl.classList.remove("player-attack-dash", "hero-attack-laser", "hero-attack-emp", "hero-attack-quantum");
+        const attackClassMap = { laser: 'hero-attack-laser', emp: 'hero-attack-emp', quantum: 'hero-attack-quantum' };
+        playerSpriteEl.classList.add(attackClassMap[activeMove.key] || 'player-attack-dash');
         playerSpriteEl.classList.replace("hero-idle", "hero-attack");
         setTimeout(() => {
-          playerSpriteEl.classList.remove("player-attack-dash");
+          playerSpriteEl.classList.remove(attackClassMap[activeMove.key] || 'player-attack-dash');
           playerSpriteEl.classList.replace("hero-attack", "hero-idle");
-        }, 500);
+        }, 550);
       }
       
       if (isDesperateHit) {
@@ -1055,8 +1104,10 @@ function resolveClassroomDirectChoice(chosenIdx) {
         bossHp = Math.max(0, bossHp - finalDmg);
         localStorage.setItem(gk("sci_quest_boss_hp"), bossHp);
         
-        shootCombatProjectile(true, activeMove.color, () => {
-          triggerDamageEffect(true, `-${finalDmg} (7%)`);
+        window.SoundFX.playSlash(); // Use slash for desperate hit
+        
+        shootCombatProjectile(true, playerActionType, () => {
+          triggerDamageEffect(true, finalDmg, 'normal');
           updateBattleHPBars();
         });
         
@@ -1064,8 +1115,10 @@ function resolveClassroomDirectChoice(chosenIdx) {
         App.showToast(`✨ ปาฏิหาริย์! ติด -${finalDmg} DMG`);
       } else {
         // พลาด
-        shootCombatProjectile(true, "rgba(200,200,200,0.3)", () => {
-          triggerDamageEffect(true, "MISS!");
+        window.SoundFX.playMiss();
+        
+        shootCombatProjectile(true, 'miss', () => {
+          triggerDamageEffect(true, 'MISS!', 'miss');
           updateBattleHPBars();
         });
         
@@ -1074,6 +1127,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
       }
     } else if (isTimeout) {
       // หมดเวลา -> ไม่มีการโจมตีใดๆ
+      window.SoundFX.playAlarm();
       addShipLog(`หมดเวลา! ไม่มีการโจมตี รอบตกเป็นของบอส`, "alert");
       App.showToast("⏱️ หมดเวลา! บอสกำลังจะโจมตี", true);
     }
@@ -1160,7 +1214,26 @@ function startCombatCanvasLoop() {
   spellsList = [];
   battleSceneTime = 0;
   
-  // Spawn ambient atmospheric particles
+  // Determine zone for particle theming
+  const activeNodeKey = App.getActiveNode() || 'node1';
+  const zoneThemeMap = {
+    node1: 'reactor', node2: 'reactor',
+    node3: 'water', node4: 'water',
+    node5: 'botanic', node6: 'botanic',
+    node7: 'genetics', node8: 'genetics',
+    node9: 'bridge', node10: 'bridge'
+  };
+  const currentZone = zoneThemeMap[activeNodeKey] || 'reactor';
+  const zoneParticleColors = {
+    reactor: ['255,100,50', '255,60,30', '200,50,20'],
+    water: ['0,200,255', '50,180,255', '100,220,255'],
+    botanic: ['50,255,100', '100,255,150', '0,200,80'],
+    genetics: ['200,100,255', '180,60,255', '220,150,255'],
+    bridge: ['255,200,100', '200,150,255', '255,220,150']
+  };
+  const colors = zoneParticleColors[currentZone] || zoneParticleColors.reactor;
+  
+  // Spawn ambient atmospheric particles (zone-colored)
   battleAmbientParticles = [];
   for (let i = 0; i < 25; i++) {
     battleAmbientParticles.push({
@@ -1170,7 +1243,7 @@ function startCombatCanvasLoop() {
       vy: -Math.random() * 0.4 - 0.15,
       size: Math.random() * 1.8 + 0.4,
       baseAlpha: Math.random() * 0.35 + 0.08,
-      color: Math.random() > 0.6 ? "0,243,255" : Math.random() > 0.5 ? "143,0,255" : "255,255,255"
+      color: colors[Math.floor(Math.random() * colors.length)]
     });
   }
 
@@ -1181,28 +1254,49 @@ function startCombatCanvasLoop() {
     const H = combatCanvas.height;
     const groundY = H * 0.65;
     
+    // Determine zone theme for color palette
+    const activeNodeKey = App.getActiveNode() || 'node1';
+    const zoneThemeMap = {
+      node1: 'reactor', node2: 'reactor',
+      node3: 'water', node4: 'water',
+      node5: 'botanic', node6: 'botanic',
+      node7: 'genetics', node8: 'genetics',
+      node9: 'bridge', node10: 'bridge'
+    };
+    const currentZone = zoneThemeMap[activeNodeKey] || 'reactor';
+    
+    // Zone-specific color palettes
+    const zoneColors = {
+      reactor: { sky: ['#1a0808', '#0c0c1e', '#131328'], ground: ['#2e1a1a', '#1c0e0e', '#0f0707'], horizon: ['#ff4444', '#ff8844', '#ff4444'] },
+      water:   { sky: ['#061a24', '#0c1820', '#131e28'], ground: ['#1a2e30', '#0e1c1e', '#070f10'], horizon: ['#00d4ff', '#44ccff', '#00d4ff'] },
+      botanic: { sky: ['#0a1a0a', '#0c1a14', '#122014'], ground: ['#1a2e1a', '#0e1c12', '#070f08'], horizon: ['#44ff88', '#66ffaa', '#44ff88'] },
+      genetics:{ sky: ['#1a0a24', '#140c1e', '#181328'], ground: ['#2e1a30', '#1a0e1c', '#0f0710'], horizon: ['#aa44ff', '#cc66ff', '#aa44ff'] },
+      bridge:  { sky: ['#0a0a1a', '#0c0c20', '#101028'], ground: ['#1a1a30', '#0e0e1e', '#080810'], horizon: ['#ffaa00', '#cc66ff', '#ffaa00'] }
+    };
+    const zc = zoneColors[currentZone] || zoneColors.reactor;
+    
     // Sky gradient
     const skyGrad = combatCtx.createLinearGradient(0, 0, 0, groundY);
-    skyGrad.addColorStop(0, "#06060f");
-    skyGrad.addColorStop(0.5, "#0c0c1e");
-    skyGrad.addColorStop(1, "#131328");
+    skyGrad.addColorStop(0, zc.sky[0]);
+    skyGrad.addColorStop(0.5, zc.sky[1]);
+    skyGrad.addColorStop(1, zc.sky[2]);
     combatCtx.fillStyle = skyGrad;
     combatCtx.fillRect(0, 0, W, groundY);
     
     // Ground gradient
     const groundGrad = combatCtx.createLinearGradient(0, groundY, 0, H);
-    groundGrad.addColorStop(0, "#1a1a2e");
-    groundGrad.addColorStop(0.5, "#0e0e1c");
-    groundGrad.addColorStop(1, "#07070f");
+    groundGrad.addColorStop(0, zc.ground[0]);
+    groundGrad.addColorStop(0.5, zc.ground[1]);
+    groundGrad.addColorStop(1, zc.ground[2]);
     combatCtx.fillStyle = groundGrad;
     combatCtx.fillRect(0, groundY, W, H - groundY);
     
-    // Horizon glow line
+    // Horizon glow line (zone-colored)
     const lineGrad = combatCtx.createLinearGradient(0, 0, W, 0);
     lineGrad.addColorStop(0, "transparent");
-    lineGrad.addColorStop(0.25, "rgba(0,243,255,0.25)");
-    lineGrad.addColorStop(0.5, "rgba(143,0,255,0.6)");
-    lineGrad.addColorStop(0.75, "rgba(0,243,255,0.25)");
+    lineGrad.addColorStop(0.25, `rgba(${parseInt(zc.horizon[0].slice(1,3),16)},${parseInt(zc.horizon[0].slice(3,5),16)},${parseInt(zc.horizon[0].slice(5,7),16)},0.25)`);
+    lineGrad.addColorStop(0.5, `rgba(${parseInt(zc.horizon[1].slice(1,3),16)},${parseInt(zc.horizon[1].slice(3,5),16)},${parseInt(zc.horizon[1].slice(5,7),16)},0.5)`);
+    lineGrad.addColorStop(0.75, `rgba(${parseInt(zc.horizon[0].slice(1,3),16)},${parseInt(zc.horizon[0].slice(3,5),16)},${parseInt(zc.horizon[0].slice(5,7),16)},0.25)`);
     lineGrad.addColorStop(1, "transparent");
     combatCtx.beginPath();
     combatCtx.moveTo(0, groundY);
@@ -1210,7 +1304,7 @@ function startCombatCanvasLoop() {
     combatCtx.strokeStyle = lineGrad;
     combatCtx.lineWidth = 2;
     combatCtx.shadowBlur = 12;
-    combatCtx.shadowColor = "rgba(143,0,255,0.8)";
+    combatCtx.shadowColor = zc.horizon[1];
     combatCtx.stroke();
     combatCtx.shadowBlur = 0;
     
@@ -1235,15 +1329,33 @@ function startCombatCanvasLoop() {
     }
     combatCtx.globalAlpha = 1;
     
-    // Twinkling stars
+    // Zone-specific star and particle colors
+    const starColorMap = {
+      reactor: ['255,200,150', '255,150,100', '255,100,50'],
+      water:   ['150,220,255', '100,200,255', '200,240,255'],
+      botanic: ['150,255,200', '100,255,150', '200,255,200'],
+      genetics:['220,150,255', '180,100,255', '255,200,255'],
+      bridge:  ['255,255,200', '200,200,255', '255,200,150']
+    };
+    const starColors = starColorMap[currentZone] || starColorMap.bridge;
+    const zoneParticleColorMap = {
+      reactor: '255,100,50',
+      water: '0,200,255',
+      botanic: '50,255,100',
+      genetics: '200,100,255',
+      bridge: '255,200,100'
+    };
+    const zoneParticleColor = zoneParticleColorMap[currentZone] || '0,243,255';
+    
+    // Twinkling stars (zone-colored)
     for (let i = 0; i < 35; i++) {
       const sx = ((i * 131 + 57) % (W - 10)) + 5;
       const sy = ((i * 79 + 23) % (groundY * 0.9)) + 5;
       const twinkle = 0.3 + 0.7 * Math.abs(Math.sin(battleSceneTime * 0.025 + i * 1.2));
       combatCtx.globalAlpha = twinkle * 0.5;
-      combatCtx.fillStyle = "white";
+      combatCtx.fillStyle = starColors[i % starColors.length];
       combatCtx.shadowBlur = 3;
-      combatCtx.shadowColor = "white";
+      combatCtx.shadowColor = starColors[i % starColors.length];
       combatCtx.beginPath();
       combatCtx.arc(sx, sy, 0.8, 0, Math.PI * 2);
       combatCtx.fill();
@@ -1251,7 +1363,7 @@ function startCombatCanvasLoop() {
     combatCtx.globalAlpha = 1;
     combatCtx.shadowBlur = 0;
     
-    // Ambient particles
+    // Ambient particles (zone-colored)
     for (const p of battleAmbientParticles) {
       p.x += p.vx;
       p.y += p.vy;
@@ -1260,9 +1372,9 @@ function startCombatCanvasLoop() {
       if (p.x > W + 5) p.x = -5;
       const pa = p.baseAlpha * (0.5 + 0.5 * Math.sin(battleSceneTime * 0.03 + p.x * 0.01));
       combatCtx.globalAlpha = pa;
-      combatCtx.fillStyle = `rgb(${p.color})`;
+      combatCtx.fillStyle = `rgb(${zoneParticleColor})`;
       combatCtx.shadowBlur = 5;
-      combatCtx.shadowColor = `rgba(${p.color},0.8)`;
+      combatCtx.shadowColor = `rgba(${zoneParticleColor},0.8)`;
       combatCtx.beginPath();
       combatCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       combatCtx.fill();
@@ -1285,21 +1397,459 @@ function startCombatCanvasLoop() {
       const currentY = s.y1 + (s.y2 - s.y1) * s.progress;
 
       if (s.isShield) {
+        // ===== NANOBOT SHIELD — Hexagonal expanding ring =====
         const radius = s.progress * 80;
+        const alpha = (1 - s.progress) * 0.9;
+        
+        // Hexagon outline
         combatCtx.beginPath();
-        combatCtx.arc(currentX, currentY, radius, 0, Math.PI * 2);
-        combatCtx.strokeStyle = `rgba(0, 255, 102, ${(1 - s.progress) * 0.9})`;
-        combatCtx.lineWidth = 5;
+        for (let h = 0; h < 6; h++) {
+          const angle = (h / 6) * Math.PI * 2 - Math.PI / 2;
+          const hx = currentX + Math.cos(angle) * radius;
+          const hy = currentY + Math.sin(angle) * radius;
+          if (h === 0) combatCtx.moveTo(hx, hy);
+          else combatCtx.lineTo(hx, hy);
+        }
+        combatCtx.closePath();
+        combatCtx.strokeStyle = `rgba(0, 255, 102, ${alpha})`;
+        combatCtx.lineWidth = 4;
         combatCtx.shadowBlur = 20;
         combatCtx.shadowColor = "rgba(0, 255, 102, 0.8)";
         combatCtx.stroke();
+        
+        // Inner hex ring
         combatCtx.beginPath();
-        combatCtx.arc(currentX, currentY, radius * 0.7, 0, Math.PI * 2);
-        combatCtx.strokeStyle = `rgba(0, 255, 102, ${(1 - s.progress) * 0.4})`;
-        combatCtx.lineWidth = 8;
+        for (let h = 0; h < 6; h++) {
+          const angle = (h / 6) * Math.PI * 2 - Math.PI / 2;
+          const hx = currentX + Math.cos(angle) * radius * 0.65;
+          const hy = currentY + Math.sin(angle) * radius * 0.65;
+          if (h === 0) combatCtx.moveTo(hx, hy);
+          else combatCtx.lineTo(hx, hy);
+        }
+        combatCtx.closePath();
+        combatCtx.strokeStyle = `rgba(0, 255, 102, ${alpha * 0.5})`;
+        combatCtx.lineWidth = 6;
+        combatCtx.stroke();
+        
+        // Floating nanobot dots around ring
+        for (let n = 0; n < 8; n++) {
+          const nAngle = (n / 8) * Math.PI * 2 + battleSceneTime * 0.05;
+          const nr = radius * (0.8 + 0.2 * Math.sin(battleSceneTime * 0.1 + n));
+          const nx = currentX + Math.cos(nAngle) * nr;
+          const ny = currentY + Math.sin(nAngle) * nr;
+          combatCtx.beginPath();
+          combatCtx.arc(nx, ny, 2, 0, Math.PI * 2);
+          combatCtx.fillStyle = `rgba(0, 255, 102, ${alpha * (0.5 + 0.5 * Math.sin(battleSceneTime * 0.08 + n))})`;
+          combatCtx.shadowBlur = 8;
+          combatCtx.shadowColor = "rgba(0, 255, 102, 0.6)";
+          combatCtx.fill();
+        }
+        combatCtx.shadowBlur = 0;
+        
+        // Rising plus signs
+        if (s.progress > 0.2 && s.progress < 0.8) {
+          for (let p = 0; p < 3; p++) {
+            const px = currentX + (Math.random() - 0.5) * 60;
+            const py = currentY - Math.random() * 40 * s.progress;
+            combatCtx.font = '14px sans-serif';
+            combatCtx.fillStyle = `rgba(0, 255, 102, ${0.3 + 0.3 * Math.sin(battleSceneTime * 0.1 + p)})`;
+            combatCtx.fillText('+', px, py);
+          }
+        }
+      } else if (s.isLaser) {
+        // ===== LASER BOLT — Thin bright beam with photon trail =====
+        const beamProgress = s.progress;
+        const beamX = currentX;
+        const beamY = currentY;
+        
+        // Main beam line from start to current position
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.lineTo(beamX, beamY);
+        combatCtx.strokeStyle = `rgba(0, 243, 255, ${0.3 + 0.7 * (1 - beamProgress)})`;
+        combatCtx.lineWidth = 4;
+        combatCtx.shadowBlur = 20;
+        combatCtx.shadowColor = '#00f3ff';
+        combatCtx.stroke();
+        
+        // Thin inner core
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.lineTo(beamX, beamY);
+        combatCtx.strokeStyle = 'rgba(255,255,255,0.9)';
+        combatCtx.lineWidth = 1.5;
+        combatCtx.shadowBlur = 30;
+        combatCtx.shadowColor = 'white';
         combatCtx.stroke();
         combatCtx.shadowBlur = 0;
-      } else if (!s.isBurst) {
+        
+        // Photon trail particles along beam
+        for (let p = 0; p < 6; p++) {
+          const tp = Math.max(0, beamProgress - p * 0.025);
+          const px = s.x1 + (s.x2 - s.x1) * tp;
+          const py = s.y1 + (s.y2 - s.y1) * tp;
+          combatCtx.globalAlpha = (1 - p / 7) * 0.8;
+          combatCtx.fillStyle = '#00f3ff';
+          combatCtx.shadowBlur = 10;
+          combatCtx.shadowColor = '#00f3ff';
+          combatCtx.beginPath();
+          combatCtx.arc(px, py, 3 - p * 0.3, 0, Math.PI * 2);
+          combatCtx.fill();
+        }
+        combatCtx.globalAlpha = 1;
+        combatCtx.shadowBlur = 0;
+        
+        // Impact burst at end
+        if (s.progress >= 0.92 && !s._burst) {
+          s._burst = true;
+          // Sharp linear shatter fragments
+          for (let b = 0; b < 10; b++) {
+            const angle = (b / 10) * Math.PI * 2;
+            const spd = Math.random() * 3 + 1.5;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 45,
+              y2: currentY + Math.sin(angle) * 45,
+              progress: 0, speed: 0.12,
+              size: Math.random() * 2.5 + 0.5,
+              color: '#00f3ff', isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isEMP) {
+        // ===== EMP BLAST — Expanding energy ring with arcs =====
+        const expand = s.progress * 1.2;
+        const pulseAlpha = 0.6 + 0.4 * Math.sin(battleSceneTime * 0.3 + s.pulsePhase);
+        
+        // Expanding ring
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * expand, 0, Math.PI * 2);
+        combatCtx.strokeStyle = `rgba(0, 136, 255, ${(1 - s.progress * 0.5) * pulseAlpha})`;
+        combatCtx.lineWidth = 4;
+        combatCtx.shadowBlur = 25;
+        combatCtx.shadowColor = '#0088ff';
+        combatCtx.stroke();
+        
+        // Second ring
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * expand * 0.6, 0, Math.PI * 2);
+        combatCtx.strokeStyle = `rgba(100, 200, 255, ${(1 - s.progress) * pulseAlpha * 0.6})`;
+        combatCtx.lineWidth = 2;
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+        
+        // Electric arcs
+        for (let a = 0; a < 4; a++) {
+          const aAngle = (a / 4) * Math.PI * 2 + battleSceneTime * 0.1;
+          const aLen = s.size * expand * 0.8;
+          const aX = currentX + Math.cos(aAngle) * aLen;
+          const aY = currentY + Math.sin(aAngle) * aLen;
+          combatCtx.beginPath();
+          combatCtx.moveTo(currentX, currentY);
+          combatCtx.lineTo(aX, aY);
+          combatCtx.strokeStyle = `rgba(200, 230, 255, ${(1 - s.progress) * 0.5})`;
+          combatCtx.lineWidth = 1.5;
+          combatCtx.shadowBlur = 15;
+          combatCtx.shadowColor = '#0088ff';
+          combatCtx.stroke();
+          combatCtx.shadowBlur = 0;
+        }
+        
+        // Sparks at impact
+        if (s.progress >= 0.90 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 20; b++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = Math.random() * 3 + 1;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 70,
+              y2: currentY + Math.sin(angle) * 70,
+              progress: 0, speed: 0.08 + Math.random() * 0.06,
+              size: Math.random() * 2 + 0.5,
+              color: Math.random() > 0.5 ? '#0088ff' : '#66ddff',
+              isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isQuantum) {
+        // ===== QUANTUM STORM — Swirling vortex =====
+        s.spiralAngle += 0.15;
+        const vortexProgress = s.progress;
+        
+        // Spiral trail
+        for (let sp = 0; sp < 18; sp++) {
+          const st = Math.max(0, vortexProgress - sp * 0.02);
+          const sAngle = s.spiralAngle + sp * 0.4;
+          const sRadius = st * s.size * 1.5;
+          const sx = currentX + Math.cos(sAngle) * sRadius * st;
+          const sy = currentY + Math.sin(sAngle) * sRadius * st;
+          const sa = (1 - sp / 19) * 0.6;
+          combatCtx.globalAlpha = sa;
+          combatCtx.fillStyle = sp % 2 === 0 ? '#8f00ff' : '#bf60ff';
+          combatCtx.shadowBlur = 15;
+          combatCtx.shadowColor = '#8f00ff';
+          combatCtx.beginPath();
+          combatCtx.arc(sx, sy, 3 - sp * 0.12, 0, Math.PI * 2);
+          combatCtx.fill();
+        }
+        combatCtx.globalAlpha = 1;
+        combatCtx.shadowBlur = 0;
+        
+        // Core orb pulsing
+        const coreSize = s.size * (0.8 + 0.2 * Math.sin(battleSceneTime * 0.2));
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, coreSize, 0, Math.PI * 2);
+        combatCtx.fillStyle = '#8f00ff';
+        combatCtx.shadowBlur = 30;
+        combatCtx.shadowColor = '#8f00ff';
+        combatCtx.fill();
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, coreSize * 0.35, 0, Math.PI * 2);
+        combatCtx.fillStyle = 'rgba(255,255,255,0.85)';
+        combatCtx.shadowBlur = 15;
+        combatCtx.shadowColor = 'white';
+        combatCtx.fill();
+        combatCtx.shadowBlur = 0;
+        
+        // Star burst at impact
+        if (s.progress >= 0.85 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 24; b++) {
+            const angle = (b / 24) * Math.PI * 2;
+            const spd = Math.random() * 2 + 1;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 60,
+              y2: currentY + Math.sin(angle) * 60,
+              progress: 0, speed: 0.06 + Math.random() * 0.05,
+              size: Math.random() * 3 + 1,
+              color: b % 3 === 0 ? '#ffffff' : b % 3 === 1 ? '#8f00ff' : '#bf60ff',
+              isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isShockwave) {
+        // ===== BOSS SHOCKWAVE — Expanding orange ring =====
+        s.expandRatio = s.progress * 2.5;
+        const swAlpha = (1 - s.progress) * 0.8;
+        
+        // Main shockwave ring
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * s.expandRatio, 0, Math.PI * 2);
+        combatCtx.strokeStyle = `rgba(255, 136, 68, ${swAlpha})`;
+        combatCtx.lineWidth = 6 * (1 - s.progress * 0.7);
+        combatCtx.shadowBlur = 25;
+        combatCtx.shadowColor = '#ff8844';
+        combatCtx.stroke();
+        
+        // Inner ring
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * s.expandRatio * 0.65, 0, Math.PI * 2);
+        combatCtx.strokeStyle = `rgba(255, 200, 100, ${swAlpha * 0.5})`;
+        combatCtx.lineWidth = 3;
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+        
+        // Impact burst
+        if (s.progress >= 0.7 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 12; b++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = Math.random() * 2 + 0.5;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 50,
+              y2: currentY + Math.sin(angle) * 50,
+              progress: 0, speed: 0.07,
+              size: Math.random() * 3 + 1,
+              color: Math.random() > 0.5 ? '#ff8844' : '#ffaa66',
+              isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isPoison) {
+        // ===== BOSS POISON BEAM — Thick beam with dripping trail =====
+        s.dripTimer += 0.02;
+        const beamWidth = 8 + 4 * Math.sin(s.dripTimer * 3);
+        
+        // Beam line
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.lineTo(currentX, currentY);
+        combatCtx.strokeStyle = `rgba(204, 68, 255, ${0.4 + 0.3 * Math.sin(s.dripTimer * 2)})`;
+        combatCtx.lineWidth = beamWidth;
+        combatCtx.shadowBlur = 20;
+        combatCtx.shadowColor = '#cc44ff';
+        combatCtx.stroke();
+        
+        // Green core
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.lineTo(currentX, currentY);
+        combatCtx.strokeStyle = `rgba(100, 255, 100, ${0.3 + 0.3 * Math.sin(s.dripTimer * 3 + 1)})`;
+        combatCtx.lineWidth = beamWidth * 0.4;
+        combatCtx.shadowBlur = 15;
+        combatCtx.shadowColor = 'rgba(100,255,100,0.6)';
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+        
+        // Drip particles falling
+        for (let d = 0; d < 3; d++) {
+          const dt = Math.max(0, s.progress - d * 0.05);
+          const dx = s.x1 + (s.x2 - s.x1) * dt;
+          const dy = s.y1 + (s.y2 - s.y1) * dt + 10 * Math.sin(s.dripTimer + d * 2);
+          combatCtx.globalAlpha = 0.4 * (1 - dt);
+          combatCtx.fillStyle = '#cc44ff';
+          combatCtx.shadowBlur = 8;
+          combatCtx.shadowColor = '#cc44ff';
+          combatCtx.beginPath();
+          combatCtx.arc(dx, dy, 2 + Math.sin(s.dripTimer + d), 0, Math.PI * 2);
+          combatCtx.fill();
+        }
+        combatCtx.globalAlpha = 1;
+        combatCtx.shadowBlur = 0;
+        
+        // Splash burst at impact
+        if (s.progress >= 0.90 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 16; b++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = Math.random() * 2 + 0.8;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 45,
+              y2: currentY + Math.sin(angle) * 45,
+              progress: 0, speed: 0.09,
+              size: Math.random() * 2 + 0.5,
+              color: Math.random() > 0.5 ? '#cc44ff' : '#66ff66',
+              isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isLightning) {
+        // ===== BOSS LIGHTNING PUNCH — Zigzag bolt =====
+        // Generate zigzag segments on first draw
+        if (s.segments.length === 0) {
+          const steps = 6 + Math.floor(Math.random() * 4);
+          for (let seg = 0; seg < steps; seg++) {
+            const t = seg / steps;
+            const nx = s.x1 + (s.x2 - s.x1) * t + (Math.random() - 0.5) * 50;
+            const ny = s.y1 + (s.y2 - s.y1) * t + (Math.random() - 0.5) * 30;
+            s.segments.push({ x: nx, y: ny });
+          }
+          s.segments.push({ x: s.x2, y: s.y2 });
+        }
+        
+        // Draw zigzag
+        const boltx = s.segments.length > 0 ? s.segments[Math.floor(s.progress * (s.segments.length - 1))].x : s.x1;
+        const bolty = s.segments.length > 0 ? s.segments[Math.floor(s.progress * (s.segments.length - 1))].y : s.y1;
+        
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        for (let seg = 0; seg < s.segments.length && seg / s.segments.length <= s.progress; seg++) {
+          combatCtx.lineTo(s.segments[seg].x, s.segments[seg].y);
+        }
+        combatCtx.strokeStyle = '#ffcc00';
+        combatCtx.lineWidth = 5;
+        combatCtx.shadowBlur = 30;
+        combatCtx.shadowColor = '#ffcc00';
+        combatCtx.stroke();
+        
+        // Inner bright core
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        for (let seg = 0; seg < s.segments.length && seg / s.segments.length <= s.progress; seg++) {
+          combatCtx.lineTo(s.segments[seg].x, s.segments[seg].y);
+        }
+        combatCtx.strokeStyle = 'rgba(255,255,255,0.9)';
+        combatCtx.lineWidth = 2;
+        combatCtx.shadowBlur = 40;
+        combatCtx.shadowColor = 'white';
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+        
+        // Spark burst at impact
+        if (s.progress >= 0.95 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 15; b++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = Math.random() * 4 + 1;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 50,
+              y2: currentY + Math.sin(angle) * 50,
+              progress: 0, speed: 0.1 + Math.random() * 0.08,
+              size: Math.random() * 2 + 0.5,
+              color: '#ffcc00', isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isDrain) {
+        // ===== BOSS DRAIN — Red tendrils from player to boss =====
+        s.tendrils = s.tendrils.length > 0 ? s.tendrils : [0, 1, 2, 3, 4];
+        const drainAlpha = 0.3 + 0.3 * Math.sin(battleSceneTime * 0.15);
+        
+        // Multiple curved tendrils
+        s.tendrils.forEach((t, idx) => {
+          const tAngle = (idx / 5) * Math.PI * 0.6 - Math.PI * 0.3;
+          const midX = (s.x1 + s.x2) / 2 + Math.cos(tAngle + battleSceneTime * 0.05) * 30;
+          const midY = (s.y1 + s.y2) / 2 + Math.sin(tAngle + battleSceneTime * 0.05) * 30;
+          
+          combatCtx.beginPath();
+          combatCtx.moveTo(s.x1, s.y1);
+          combatCtx.quadraticCurveTo(midX, midY, currentX, currentY);
+          combatCtx.strokeStyle = `rgba(255, 68, 170, ${drainAlpha * (1 - s.progress)})`;
+          combatCtx.lineWidth = 2;
+          combatCtx.shadowBlur = 12;
+          combatCtx.shadowColor = '#ff44aa';
+          combatCtx.stroke();
+          combatCtx.shadowBlur = 0;
+          
+          // Suction particles along tendril
+          if (s.progress > 0.3) {
+            const pt = s.progress - 0.3;
+            const px = s.x1 + (s.x2 - s.x1) * pt;
+            const py = s.y1 + (s.y2 - s.y1) * pt;
+            combatCtx.beginPath();
+            combatCtx.arc(px, py, 1.5 + Math.sin(battleSceneTime * 0.2 + idx), 0, Math.PI * 2);
+            combatCtx.fillStyle = `rgba(255, 68, 170, ${0.6 * (1 - s.progress)})`;
+            combatCtx.shadowBlur = 6;
+            combatCtx.shadowColor = '#ff44aa';
+            combatCtx.fill();
+            combatCtx.shadowBlur = 0;
+          }
+        });
+      } else if (s.isMiss) {
+        // ===== MISS — Faint gray puff =====
+        const missAlpha = (1 - s.progress) * 0.4;
+        combatCtx.globalAlpha = missAlpha;
+        combatCtx.fillStyle = 'rgba(180, 180, 180, 0.3)';
+        combatCtx.shadowBlur = 5;
+        combatCtx.shadowColor = 'rgba(180,180,180,0.3)';
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * (1 + s.progress * 2), 0, Math.PI * 2);
+        combatCtx.fill();
+        combatCtx.shadowBlur = 0;
+        combatCtx.globalAlpha = 1;
+        
+        // Small puff at end
+        if (s.progress >= 0.8 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 5; b++) {
+            const angle = Math.random() * Math.PI * 2;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 20,
+              y2: currentY + Math.sin(angle) * 20,
+              progress: 0, speed: 0.06,
+              size: Math.random() * 2 + 1,
+              color: 'rgba(180,180,180,0.3)', isBurst: true, onHit: null
+            });
+          }
+        }
+      } else {
+        // ===== DEFAULT / LEGACY — Simple orb =====
         // Projectile particle trail
         for (let t = 1; t <= 8; t++) {
           const tp = Math.max(0, s.progress - t * 0.016);
@@ -1347,8 +1897,10 @@ function startCombatCanvasLoop() {
             });
           }
         }
-      } else {
-        // Burst fragment
+      }
+
+      // Handle burst fragments
+      if (s.isBurst) {
         combatCtx.globalAlpha = 1 - s.progress;
         combatCtx.beginPath();
         combatCtx.arc(currentX, currentY, s.size, 0, Math.PI * 2);
@@ -1379,44 +1931,86 @@ function stopCombatCanvasLoop() {
   combatCanvas = null;
 }
 
-// ยิงแสงกระสุนโจมตี
-function shootCombatProjectile(isPlayerAttacking, color, onHitCallback) {
+// ======================================================================
+// ENHANCED PROJECTILE SYSTEM — Each action type has unique shape & motion
+// ======================================================================
+
+// Build a unique projectile based on actionType
+function buildProjectile(isPlayerAttacking, startX, startY, endX, endY, actionType, onHitCallback) {
+  const base = {
+    x1: startX, y1: startY,
+    x2: endX, y2: endY,
+    progress: 0,
+    onHit: onHitCallback,
+    actionType: actionType
+  };
+
+  switch (actionType) {
+    case 'laser':
+      return { ...base, speed: 0.045, size: 12, color: '#00f3ff', isBurst: false, isLaser: true, trailLen: 12 };
+    case 'emp':
+      return { ...base, speed: 0.028, size: 18, color: '#0088ff', isBurst: false, isEMP: true, pulsePhase: 0 };
+    case 'quantum':
+      return { ...base, speed: 0.022, size: 22, color: '#8f00ff', isBurst: false, isQuantum: true, spiralAngle: 0 };
+    case 'boss_shockwave':
+      return { ...base, speed: 0.038, size: 25, color: '#ff8844', isBurst: false, isShockwave: true, expandRatio: 0 };
+    case 'boss_poison':
+      return { ...base, speed: 0.030, size: 14, color: '#cc44ff', isBurst: false, isPoison: true, dripTimer: 0 };
+    case 'boss_lightning':
+      return { ...base, speed: 0.060, size: 10, color: '#ffcc00', isBurst: false, isLightning: true, segments: [] };
+    case 'boss_drain':
+      return { ...base, speed: 0.025, size: 8, color: '#ff44aa', isBurst: false, isDrain: true, tendrils: [] };
+    case 'miss':
+      return { ...base, speed: 0.050, size: 6, color: 'rgba(180,180,180,0.4)', isBurst: false, isMiss: true };
+    default:
+      return { ...base, speed: 0.035, size: 10, color: '#00f3ff', isBurst: false };
+  }
+}
+
+// ยิงแสงกระสุนโจมตี (Enhanced — accepts actionType for unique shapes)
+function shootCombatProjectile(isPlayerAttacking, colorOrAction, onHitCallback) {
   if (!combatCanvas) {
     if (onHitCallback) onHitCallback();
     return;
   }
 
-  // Player is bottom-left, enemy is top-right (proper Pokemon layout)
+  // If second param is a color string, treat as simple projectile (backward compat)
+  // Otherwise it's an actionType string
+  let actionType = 'default';
+  let color = colorOrAction;
+  if (typeof colorOrAction === 'string' && !colorOrAction.startsWith('rgba') && !colorOrAction.startsWith('#')) {
+    actionType = colorOrAction;
+    const colorMap = {
+      laser: '#00f3ff', emp: '#0088ff', quantum: '#8f00ff',
+      boss_shockwave: '#ff8844', boss_poison: '#cc44ff',
+      boss_lightning: '#ffcc00', boss_drain: '#ff44aa', miss: 'rgba(180,180,180,0.4)'
+    };
+    color = colorMap[actionType] || '#00f3ff';
+  } else if (typeof colorOrAction === 'string' && colorOrAction.startsWith('#')) {
+    // Map hex colors to action types for backward compat
+    const colorMap = {
+      '#00ff66': 'laser', '#00f3ff': 'emp', '#8f00ff': 'quantum',
+      '#ffae00': 'nanobot', '#ff8844': 'boss_shockwave',
+      '#cc44ff': 'boss_poison', '#ffcc00': 'boss_lightning', '#ff44aa': 'boss_drain'
+    };
+    actionType = colorMap[colorOrAction] || 'default';
+  }
+
   const playerX = combatCanvas.width * 0.12;
   const playerY = combatCanvas.height * 0.80;
-  
   const bossX = combatCanvas.width * 0.83;
   const bossY = combatCanvas.height * 0.22;
 
   const startX = isPlayerAttacking ? playerX : bossX;
   const startY = isPlayerAttacking ? playerY : bossY;
-  
   const endX = isPlayerAttacking ? bossX : playerX;
   const endY = isPlayerAttacking ? bossY : playerY;
 
-  const activeMove = App.getActiveMove();
-  const projSize = isPlayerAttacking 
-    ? (activeMove.difficulty === 'hard' ? 16 : activeMove.difficulty === 'medium' ? 12 : 9)
-    : 10;
-
-  spellsList.push({
-    x1: startX, y1: startY,
-    x2: endX, y2: endY,
-    progress: 0,
-    speed: 0.035,
-    size: projSize,
-    color: color,
-    isBurst: false,
-    onHit: onHitCallback
-  });
+  const proj = buildProjectile(isPlayerAttacking, startX, startY, endX, endY, actionType, onHitCallback);
+  spellsList.push(proj);
 }
 
-// ปล่อยเกราะฟื้นฟูสีเขียวขยาย
+// ปล่อยเกราะฟื้นฟูสีเขียวขยาย (Enhanced — Hexagonal nanobot shield)
 function shootHealShieldRing(onHealCallback) {
   if (!combatCanvas) {
     if (onHealCallback) onHealCallback();
@@ -1436,41 +2030,117 @@ function shootHealShieldRing(onHealCallback) {
     isBurst: false,
     onHit: onHealCallback
   });
+  
+  // Also spawn floating + particles
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const dist = 20 + Math.random() * 30;
+    setTimeout(() => {
+      if (!combatCanvas) return;
+      spellsList.push({
+        x1: playerX, y1: playerY,
+        x2: playerX + Math.cos(angle) * dist,
+        y2: playerY + Math.sin(angle) * dist,
+        progress: 0, speed: 0.03,
+        size: 2, color: '#00ff66',
+        isBurst: true, onHit: null
+      });
+    }, i * 40);
+  }
+  
+  // Flash the player sprite green
+  const playerSpriteEl = document.getElementById("battle-player-sprite");
+  if (playerSpriteEl) {
+    playerSpriteEl.style.transition = 'filter 0.1s';
+    playerSpriteEl.style.filter = 'brightness(1.5) hue-rotate(90deg) drop-shadow(0 0 20px #00ff66)';
+    setTimeout(() => {
+      playerSpriteEl.style.filter = '';
+    }, 400);
+  }
 }
 
-// ตัวแจ้งตัวเลขความเสียหายแบบลอยตัวพิกัด
-function triggerDamageEffect(isAttackingBoss, dmg) {
+// ตัวแจ้งตัวเลขความเสียหายแบบลอยตัวพิกัด (Enhanced — each damageType has unique style)
+function triggerDamageEffect(isAttackingBoss, dmg, damageType) {
+  damageType = damageType || 'normal';
   const popup = document.getElementById(isAttackingBoss ? "enemy-damage-popup" : "player-damage-popup");
   if (!popup) return;
   
   popup.textContent = typeof dmg === 'number' ? `-${dmg}` : dmg;
-  popup.className = `damage-number damage-pop-active`;
+  popup.className = `damage-number`;
   
-  if (isAttackingBoss) {
-    popup.classList.add("damage-green");
-  } else {
-    const activeMove = App.getActiveMove();
-    if (activeMove && activeMove.type === "teal") {
-      popup.className = `damage-number damage-pop-active damage-green`; 
-    } else {
-      popup.classList.add("damage-red"); 
-    }
+  switch (damageType) {
+    case 'crit':
+      // Gold, large, explosive
+      popup.style.fontSize = '2.8rem';
+      popup.style.color = '#ffd700';
+      popup.style.textShadow = '0 0 20px rgba(255, 215, 0, 0.9), 0 0 40px rgba(255, 215, 0, 0.5)';
+      popup.classList.add('damage-pop-active');
+      // Screen gold flash
+      const arena = document.querySelector('.rpg-battle-window .battle-arena');
+      if (arena) {
+        const flash = document.createElement('div');
+        flash.style.cssText = 'position:absolute;inset:0;background:rgba(255,215,0,0.2);z-index:100;pointer-events:none;animation:flash-fade 0.4s forwards;';
+        arena.appendChild(flash);
+        setTimeout(() => flash.remove(), 500);
+      }
+      break;
+    case 'miss':
+      popup.style.fontSize = '1.6rem';
+      popup.style.color = '#94a3b8';
+      popup.style.textShadow = '0 0 5px rgba(148, 163, 184, 0.5)';
+      popup.textContent = 'MISS! ✗';
+      popup.classList.add('damage-pop-active');
+      break;
+    case 'heal':
+      popup.style.fontSize = '2rem';
+      popup.style.color = '#00ff66';
+      popup.style.textShadow = '0 0 15px rgba(0, 255, 102, 0.8)';
+      popup.textContent = typeof dmg === 'number' ? `+${dmg} HP` : dmg;
+      popup.classList.add('damage-pop-active');
+      break;
+    case 'boss_heal':
+      popup.style.fontSize = '1.8rem';
+      popup.style.color = '#ff44aa';
+      popup.style.textShadow = '0 0 15px rgba(255, 68, 170, 0.8)';
+      popup.textContent = typeof dmg === 'number' ? `+${dmg}` : dmg;
+      popup.classList.add('damage-pop-active');
+      break;
+    case 'combo':
+      popup.style.fontSize = '2.2rem';
+      popup.style.color = '#ffae00';
+      popup.style.textShadow = '0 0 20px rgba(255, 174, 0, 0.9), 0 0 10px rgba(255, 100, 0, 0.5)';
+      popup.textContent = `🔥 x${dmg} COMBO!`;
+      popup.classList.add('damage-pop-active');
+      break;
+    default: // normal
+      popup.style.fontSize = '1.8rem';
+      if (isAttackingBoss) {
+        popup.style.color = '#00ff66';
+        popup.style.textShadow = '0 0 10px rgba(0, 255, 102, 0.6)';
+      } else {
+        popup.style.color = '#ff2e5d';
+        popup.style.textShadow = '0 0 10px rgba(255, 46, 93, 0.6)';
+      }
+      popup.classList.add('damage-pop-active');
+      break;
   }
   
   setTimeout(() => {
-    popup.classList.remove("damage-pop-active");
+    popup.classList.remove('damage-pop-active');
   }, 900);
 
-  if (!isAttackingBoss) {
-    const activeMove = App.getActiveMove();
-    if (activeMove && activeMove.type !== "heal") {
-      const arena = document.querySelector(".rpg-battle-window .battle-arena");
-      if (arena) {
-        arena.classList.add("shake-effect");
-        setTimeout(() => {
-          arena.classList.remove("shake-effect");
-        }, 450);
-      }
+  // Screen shake — only for player taking damage, not for miss
+  if (!isAttackingBoss && damageType !== 'miss') {
+    const arena = document.querySelector(".rpg-battle-window .battle-arena");
+    if (arena) {
+      let shakeClass = 'shake-effect';
+      // Different shake intensity per damage type
+      if (damageType === 'crit') shakeClass = 'shake-effect-heavy';
+      else if (damageType === 'heal') shakeClass = 'shake-effect-light';
+      arena.classList.add(shakeClass);
+      setTimeout(() => {
+        arena.classList.remove(shakeClass);
+      }, 450);
     }
   }
 }
@@ -1907,7 +2577,7 @@ const BOSS_MOVES = [
   { name: "ดูดพลัง", dmg: 0, healPct: 0.15, acc: 1.0, color: "#ff44aa", desc: "ดูดพลัง 15% HP บอส" }
 ];
 
-// ฟังก์ชันให้บอสโจมตีผู้เล่น (turn-based) - สุ่มเลือกท่า
+// ฟังก์ชันให้บอสโจมตีผู้เล่น (turn-based) - สุ่มเลือกท่า (Enhanced — unique visuals per boss move)
 function executeBossAttack() {
   localStorage.removeItem(gk("sci_quest_boss_turn_pending"));
   
@@ -1916,6 +2586,25 @@ function executeBossAttack() {
   // สุ่มเลือกท่าของบอส
   const bossMove = BOSS_MOVES[Math.floor(Math.random() * BOSS_MOVES.length)];
   
+  // Map boss move names to action types for unique projectile visuals
+  const bossActionTypeMap = {
+    "คลื่นกระแทก": "boss_shockwave",
+    "ลำแสงพิษ": "boss_poison",
+    "หมัดอัสนี": "boss_lightning",
+    "ดูดพลัง": "boss_drain"
+  };
+  const actionType = bossActionTypeMap[bossMove.name] || "boss_shockwave";
+  
+  // Show boss move name floating above enemy
+  const enemySpriteContainer = document.querySelector(".enemy-entity .entity-sprite-container");
+  if (enemySpriteContainer) {
+    const moveLabel = document.createElement("div");
+    moveLabel.style.cssText = `position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:1rem;font-weight:bold;color:${bossMove.color};text-shadow:0 0 10px ${bossMove.color};white-space:nowrap;animation:float-up 1s forwards;z-index:50;`;
+    moveLabel.textContent = `⚔️ ${bossMove.name}!`;
+    enemySpriteContainer.appendChild(moveLabel);
+    setTimeout(() => moveLabel.remove(), 1000);
+  }
+  
   // ตรวจสอบความแม่นยำ
   const isBossHit = Math.random() <= bossMove.acc;
   
@@ -1923,15 +2612,42 @@ function executeBossAttack() {
     // บอสโจมตีพลาด
     addShipLog(`🍃 บอสใช้ "${bossMove.name}" แต่โจมตีพลาด!`, "system");
     App.showToast(`🍃 บอสใช้ ${bossMove.name}... พลาด!`);
+    
+    // Show MISS on player side
+    triggerDamageEffect(false, 'MISS!', 'miss');
+    
+    // Enemy still does the attack animation but it whiffs
+    const enemySpriteEl = document.getElementById("battle-enemy-sprite");
+    if (enemySpriteEl) {
+      enemySpriteEl.classList.add("enemy-attack-dash");
+      setTimeout(() => enemySpriteEl.classList.remove("enemy-attack-dash"), 500);
+    }
   } else if (bossMove.healPct) {
-    // บอสใช้ท่าดูดพลัง: รักษาตัว
+    // บอสใช้ท่าดูดพลัง: รักษาตัว (Unique: Red tendrils)
     const bossHp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
     const bossMaxHp = parseInt(localStorage.getItem(gk("sci_quest_boss_max_hp"))) || 100;
     const healAmt = Math.round(bossMaxHp * bossMove.healPct);
     const newBossHp = Math.min(bossMaxHp, bossHp + healAmt);
     localStorage.setItem(gk("sci_quest_boss_hp"), newBossHp);
     
-    window.SoundFX.playChest();
+    window.SoundFX.playBossDrain();
+    
+    // Drain visual: red tendrils from player TO boss (reverse direction)
+    if (combatCanvas) {
+      const playerX = combatCanvas.width * 0.12;
+      const playerY = combatCanvas.height * 0.80;
+      const bossX = combatCanvas.width * 0.83;
+      const bossY = combatCanvas.height * 0.22;
+      
+      spellsList.push({
+        x1: playerX, y1: playerY,
+        x2: bossX, y2: bossY,
+        progress: 0, speed: 0.03,
+        size: 8, color: '#ff44aa',
+        isDrain: true, tendrils: [0, 1, 2, 3],
+        isBurst: false, onHit: null
+      });
+    }
     
     const enemySpriteEl = document.getElementById("battle-enemy-sprite");
     if (enemySpriteEl) {
@@ -1939,49 +2655,114 @@ function executeBossAttack() {
       setTimeout(() => enemySpriteEl.classList.remove("heal-bounce"), 600);
     }
     
+// Player hurt animation (drained — unique per boss move)
+    const playerSpriteEl = document.getElementById("battle-player-sprite");
+    if (playerSpriteEl) {
+      playerSpriteEl.classList.remove("damaged-shake", "hero-hurt-shockwave", "hero-hurt-poison", "hero-hurt-lightning", "hero-hurt-drain");
+      const hurtClassMap = {
+        boss_shockwave: 'hero-hurt-shockwave',
+        boss_poison: 'hero-hurt-poison',
+        boss_lightning: 'hero-hurt-lightning',
+        boss_drain: 'hero-hurt-drain'
+      };
+      const hClass = hurtClassMap[actionType] || 'damaged-shake';
+      playerSpriteEl.classList.add(hClass);
+      playerSpriteEl.classList.replace("hero-idle", "hero-hurt");
+      setTimeout(() => {
+        playerSpriteEl.classList.remove(hClass);
+        playerSpriteEl.classList.replace("hero-hurt", "hero-idle");
+      }, 500);
+    }
+    
     updateBattleHPBars();
     addShipLog(`💜 บอสใช้ "${bossMove.name}" ดูดพลังชีวิต +${healAmt} HP`, "alert");
     App.showToast(`💜 บอสใช้ ${bossMove.name} ฟื้น HP`);
   } else {
-    // บอสโจมตีโดน
+    // บอสโจมตีโดน — unique projectile per move type
     const actualDmg = bossMove.dmg;
     scoreObj.hp = Math.max(0, scoreObj.hp - actualDmg);
     App.saveStudentScore(scoreObj);
     
-    window.SoundFX.playPlayerDamage();
+    // Play the boss-specific sound
+    const bossSoundMap = {
+      "คลื่นกระแทก": "playBossShockwave",
+      "ลำแสงพิษ": "playBossPoisonBeam",
+      "หมัดอัสนี": "playBossLightningPunch",
+      "ดูดพลัง": "playBossDrain"
+    };
+    const soundFn = bossSoundMap[bossMove.name];
+    if (window.SoundFX[soundFn]) window.SoundFX[soundFn]();
     
-    // แอนิเมชันโจมตีของฝั่งศัตรู
+    // Enemy attack animation — subtle variations per move
     const enemySpriteEl = document.getElementById("battle-enemy-sprite");
     if (enemySpriteEl) {
       enemySpriteEl.classList.add("enemy-attack-dash");
       setTimeout(() => enemySpriteEl.classList.remove("enemy-attack-dash"), 500);
+      
+      // Additional color flash per move type
+      if (actionType === 'boss_lightning') {
+        enemySpriteEl.style.filter = 'brightness(2) hue-rotate(-30deg)';
+        setTimeout(() => { enemySpriteEl.style.filter = ''; }, 200);
+      } else if (actionType === 'boss_poison') {
+        enemySpriteEl.style.filter = 'brightness(0.7) hue-rotate(60deg) saturate(1.5)';
+        setTimeout(() => { enemySpriteEl.style.filter = ''; }, 300);
+      }
     }
     
-    shootCombatProjectile(false, bossMove.color, () => {
-      triggerDamageEffect(false, actualDmg);
-      
-      // แอนิเมชันได้รับความเสียหายของฝั่งผู้เล่น
+    // Fire the unique projectile
+    shootCombatProjectile(false, actionType, () => {
+      // Player receives damage — unique hurt animation per boss move type
       const playerSpriteEl = document.getElementById("battle-player-sprite");
       if (playerSpriteEl) {
-        playerSpriteEl.classList.add("damaged-shake");
+        playerSpriteEl.classList.remove("damaged-shake", "hero-hurt-shockwave", "hero-hurt-poison", "hero-hurt-lightning", "hero-hurt-drain");
+        const hurtClassMap = {
+          boss_shockwave: 'hero-hurt-shockwave',
+          boss_poison: 'hero-hurt-poison',
+          boss_lightning: 'hero-hurt-lightning',
+          boss_drain: 'hero-hurt-drain'
+        };
+        const hClass = hurtClassMap[actionType] || 'damaged-shake';
+        playerSpriteEl.classList.add(hClass);
         playerSpriteEl.classList.replace("hero-idle", "hero-hurt");
+        
+        // Additional filter effects per move
+        if (actionType === 'boss_lightning') {
+          playerSpriteEl.style.filter = 'brightness(2)';
+          setTimeout(() => { playerSpriteEl.style.filter = ''; }, 250);
+        } else if (actionType === 'boss_poison') {
+          playerSpriteEl.style.filter = 'hue-rotate(90deg) saturate(0.5)';
+          setTimeout(() => { playerSpriteEl.style.filter = ''; }, 400);
+        }
+        
         setTimeout(() => {
-          playerSpriteEl.classList.remove("damaged-shake");
-          playerSpriteEl.classList.replace("hero-hurt", "hero-idle");
-        }, 500);
-      }
-      
+          playerSpriteEl.classList.remove(hClass);
+      triggerDamageEffect(false, actualDmg, 'normal');
       updateBattleHPBars();
     });
     
     addShipLog(`💥 บอสใช้ "${bossMove.name}" โจมตีใส่ปาร์ตี้ -${actualDmg} HP! (${Math.round(bossMove.acc * 100)}%)`, "alert");
     App.showToast(`💥 บอสใช้ ${bossMove.name} -${actualDmg} HP`);
+    
+    // Screen color flash per boss move type
+    const arena = document.querySelector(".rpg-battle-window .battle-arena");
+    if (arena) {
+      const flash = document.createElement('div');
+      const flashColors = {
+        boss_shockwave: 'rgba(255,136,68,0.15)',
+        boss_poison: 'rgba(204,68,255,0.15)',
+        boss_lightning: 'rgba(255,255,255,0.2)',
+        boss_drain: 'rgba(255,68,170,0.12)'
+      };
+      flash.style.cssText = `position:absolute;inset:0;background:${flashColors[actionType] || 'rgba(255,0,0,0.1)'};z-index:100;pointer-events:none;animation:flash-fade 0.5s forwards;`;
+      arena.appendChild(flash);
+      setTimeout(() => flash.remove(), 600);
+    }
   }
   
   // เช็คว่าผู้เล่นตายไหม
   if (scoreObj.hp <= 0) {
     setTimeout(() => {
-      window.SoundFX.playLevelUp();
+      window.SoundFX.playGameOver();
       App.setGamePhase("gameover");
     }, 600);
   } else {
@@ -2060,7 +2841,7 @@ function handleTeacherNextTurn() {
     });
     
     if (allCleared) {
-      window.SoundFX.playLevelUp();
+      window.SoundFX.playVictoryFanfare();
       App.setGamePhase("victory");
     } else {
       window.SoundFX.playExplosion();
