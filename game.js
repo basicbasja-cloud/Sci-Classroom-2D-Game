@@ -940,7 +940,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
         shootCombatProjectile(true, "rgba(100,100,100,0.3)", () => {
           triggerDamageEffect(true, "MISS!");
           updateBattleHPBars();
-        });
+        }, activeMove.key);
         
         addShipLog(`มติตอบถูก! คอมโบ x${comboCount} ➔ ร่ายท่า "${activeMove.label}" แต่การโจมตี [พลาดเป้า]! (Missed)`, "alert");
         App.showToast("💨 การโจมตีพลาดเป้า (Missed!)");
@@ -986,7 +986,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
           }
           
           updateBattleHPBars();
-        });
+        }, activeMove.key);
         
         if (isCrit) {
           addShipLog(`🔥 มติตอบถูก! คอมโบ x${comboCount} [Critical!] ➔ ใช้ท่า "${activeMove.label}" โจมตีคริติคอลสร้างความเสียหาย -${finalDmg}!`, "success");
@@ -1058,7 +1058,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
         shootCombatProjectile(true, activeMove.color, () => {
           triggerDamageEffect(true, `-${finalDmg} (7%)`);
           updateBattleHPBars();
-        });
+        }, activeMove.key);
         
         addShipLog(`ตอบผิด! ปาฏิหาริย์ฮีโร่โจมตีติด -${finalDmg} DMG (7%)`, "warning");
         App.showToast(`✨ ปาฏิหาริย์! ติด -${finalDmg} DMG`);
@@ -1067,7 +1067,7 @@ function resolveClassroomDirectChoice(chosenIdx) {
         shootCombatProjectile(true, "rgba(200,200,200,0.3)", () => {
           triggerDamageEffect(true, "MISS!");
           updateBattleHPBars();
-        });
+        }, activeMove.key);
         
         addShipLog(`ตอบผิด! ฮีโร่โจมตีพลาด (เหลือโอกาส 7%)`, "alert");
         App.showToast("❌ ฮีโร่โจมตีพลาด! บอสกำลังจะโจมตี", true);
@@ -1078,8 +1078,15 @@ function resolveClassroomDirectChoice(chosenIdx) {
       App.showToast("⏱️ หมดเวลา! บอสกำลังจะโจมตี", true);
     }
     
-    // ตั้งค่าเทิร์นของบอส
+  }
+  
+  // ---- Real Turn-Based: บอสโจมตีทุกเทิร์น ถ้าบอสยังมี HP อยู่ (Turn-Based Combat) ----
+  const bossHpAfter = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
+  if (bossHpAfter > 0) {
     localStorage.setItem(gk("sci_quest_boss_turn_pending"), "true");
+    addShipLog(`⏳ ถึงตาบอส! บอสกำลังเตรียมโจมตีด้วยท่าสุ่ม...`, "system");
+  } else {
+    addShipLog(`💀 บอสพ่ายแพ้! ไม่มีการตอบโต้`, "success");
   }
   
   App.setGamePhase("explanation");
@@ -1093,11 +1100,28 @@ function renderProjectorExplanation() {
   const chosenIdx = parseInt(localStorage.getItem(gk("sci_quest_class_choice")));
   const isCorrect = chosenIdx === qObj.correct;
   
+  const bossHpAfterExp = parseInt(localStorage.getItem(gk("sci_quest_boss_hp"))) || 0;
+  const bossWillAttack = bossHpAfterExp > 0;
+  
   document.getElementById("proj-exp-title").innerHTML = isCorrect
-    ? `✓ คำตอบของห้องเรียนถูกต้อง! <span style="color:var(--neon-emerald);">(ผ่านการกู้ภัยด่าน)</span>`
+    ? `✓ คำตอบของห้องเรียนถูกต้อง! <span style="color:var(--neon-emerald);">(ผ่านการกู้ภัยด่าน)</span>${bossWillAttack ? ' <span style="color:var(--neon-amber);font-size:0.85rem;">⚠️ แต่บอสพร้อมตอบโต้!</span>' : ''}`
     : chosenIdx === -1 
       ? `✗ ตอบคำถามไม่ทันเวลา! <span style="color:var(--neon-red);">(ระบบล้มเหลว)</span>`
       : `✗ คำตอบของห้องเรียนยังไม่ถูกต้อง! <span style="color:var(--neon-red);">(ระบบกู้ภัยผิดพลาด)</span>`;
+  
+  // อัปเดตปุ่ม "Next Turn" ให้แสดงสถานะบอส
+  const nextTurnBtn = document.getElementById("btn-proj-next-turn");
+  if (nextTurnBtn) {
+    if (bossWillAttack) {
+      nextTurnBtn.innerHTML = `⚔️ บอสตอบโต้! (คลิก) ➔`;
+      nextTurnBtn.style.borderColor = "var(--neon-red)";
+      nextTurnBtn.style.color = "var(--neon-red)";
+    } else {
+      nextTurnBtn.innerHTML = `ดำเนินการต่อไป ➔`;
+      nextTurnBtn.style.borderColor = "var(--neon-emerald)";
+      nextTurnBtn.style.color = "var(--neon-emerald)";
+    }
+  }
   
   document.getElementById("proj-exp-text").innerHTML = `💡 <strong>วิทยาศาสตร์เบื้องหลังคำตอบ:</strong> ${qObj.hint}`;
   document.getElementById("proj-exp-reason").innerHTML = `📚 <strong>ความสำคัญของการเรียนรู้:</strong> ${qObj.reason}`;
@@ -1284,7 +1308,263 @@ function startCombatCanvasLoop() {
       const currentX = s.x1 + (s.x2 - s.x1) * s.progress;
       const currentY = s.y1 + (s.y2 - s.y1) * s.progress;
 
-      if (s.isShield) {
+      // --- Skill-specific projectile rendering ---
+      if (s.type === "laser") {
+        // Laser Beam: fast thin beam with glow
+        const beamEndX = currentX;
+        const beamEndY = currentY;
+        
+        // Outer glow beam
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.lineTo(beamEndX, beamEndY);
+        combatCtx.strokeStyle = s.color;
+        combatCtx.lineWidth = s.size * 2.5;
+        combatCtx.shadowBlur = 35;
+        combatCtx.shadowColor = s.color;
+        combatCtx.stroke();
+        
+        // Core bright beam
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.lineTo(beamEndX, beamEndY);
+        combatCtx.strokeStyle = "rgba(255,255,255,0.85)";
+        combatCtx.lineWidth = s.size * 0.7;
+        combatCtx.shadowBlur = 20;
+        combatCtx.shadowColor = "white";
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+        
+        // Tip impact glow
+        combatCtx.beginPath();
+        combatCtx.arc(beamEndX, beamEndY, s.size * 1.5, 0, Math.PI * 2);
+        const tipGrad = combatCtx.createRadialGradient(beamEndX, beamEndY, 0, beamEndX, beamEndY, s.size * 1.5);
+        tipGrad.addColorStop(0, "white");
+        tipGrad.addColorStop(0.5, s.color);
+        tipGrad.addColorStop(1, "transparent");
+        combatCtx.fillStyle = tipGrad;
+        combatCtx.shadowBlur = 30;
+        combatCtx.shadowColor = s.color;
+        combatCtx.fill();
+        combatCtx.shadowBlur = 0;
+        
+        // Energy particles along beam
+        for (let p = 0; p < 4; p++) {
+          const pp = (battleSceneTime * 0.05 + p * 0.25) % 1;
+          const px = s.x1 + (s.x2 - s.x1) * pp;
+          const py = s.y1 + (s.y2 - s.y1) * pp;
+          combatCtx.globalAlpha = 0.5 * (1 - pp);
+          combatCtx.beginPath();
+          combatCtx.arc(px, py, s.size * 0.5, 0, Math.PI * 2);
+          combatCtx.fillStyle = "white";
+          combatCtx.shadowBlur = 15;
+          combatCtx.shadowColor = "white";
+          combatCtx.fill();
+        }
+        combatCtx.globalAlpha = 1;
+        combatCtx.shadowBlur = 0;
+        
+        // Impact burst at end
+        if (s.progress >= 0.95 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 20; b++) {
+            const angle = (b / 20) * Math.PI * 2;
+            const spd = Math.random() * 3 + 1.5;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 60,
+              y2: currentY + Math.sin(angle) * 60,
+              progress: 0, speed: 0.09,
+              size: Math.random() * 2.5 + 1,
+              color: s.color, isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.type === "emp_ring") {
+        // EMP expanding shockwave ring
+        const ringRadius = s.progress * 100;
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, ringRadius, 0, Math.PI * 2);
+        combatCtx.strokeStyle = `rgba(0, 243, 255, ${(1 - s.progress) * 0.8})`;
+        combatCtx.lineWidth = 5;
+        combatCtx.shadowBlur = 35;
+        combatCtx.shadowColor = "rgba(0, 243, 255, 0.9)";
+        combatCtx.stroke();
+        // Inner ring
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, ringRadius * 0.7, 0, Math.PI * 2);
+        combatCtx.strokeStyle = `rgba(255, 255, 255, ${(1 - s.progress) * 0.5})`;
+        combatCtx.lineWidth = 2;
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+      } else if (s.type === "boss_shockwave") {
+        // Boss: คลื่นกระแทก - orb with pulsing shockwave rings
+        // Pulsing ring halos
+        for (let r = 0; r < 3; r++) {
+          const ringPhase = ((battleSceneTime * 0.04 + r * 0.33) % 1);
+          const ringRadius = s.size * 1.5 + ringPhase * 35;
+          combatCtx.beginPath();
+          combatCtx.arc(currentX, currentY, ringRadius, 0, Math.PI * 2);
+          combatCtx.strokeStyle = `rgba(255, 136, 68, ${(1 - ringPhase) * 0.5})`;
+          combatCtx.lineWidth = 2.5;
+          combatCtx.shadowBlur = 15;
+          combatCtx.shadowColor = s.color;
+          combatCtx.stroke();
+        }
+        combatCtx.shadowBlur = 0;
+        // Main orb
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size, 0, Math.PI * 2);
+        combatCtx.fillStyle = s.color;
+        combatCtx.shadowBlur = 25;
+        combatCtx.shadowColor = s.color;
+        combatCtx.fill();
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * 0.4, 0, Math.PI * 2);
+        combatCtx.fillStyle = "rgba(255,255,255,0.9)";
+        combatCtx.shadowBlur = 10;
+        combatCtx.shadowColor = "white";
+        combatCtx.fill();
+        combatCtx.shadowBlur = 0;
+        // Impact burst + ring
+        if (s.progress >= 0.88 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 16; b++) {
+            const angle = (b / 16) * Math.PI * 2;
+            const spd = Math.random() * 2.5 + 1;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 55,
+              y2: currentY + Math.sin(angle) * 55,
+              progress: 0, speed: 0.09,
+              size: Math.random() * 3 + 1,
+              color: s.color, isBurst: true, onHit: null
+            });
+          }
+          // Orange shockwave ring on impact
+          spellsList.push({
+            x1: currentX, y1: currentY,
+            x2: currentX, y2: currentY,
+            progress: 0, speed: 0.035,
+            color: "rgba(255, 136, 68, 0.8)",
+            type: "emp_ring", isBurst: false, onHit: null
+          });
+        }
+      } else if (s.type === "boss_poison") {
+        // Boss: ลำแสงพิษ - wavy poison beam with greenish trail
+        const wobble = Math.sin(battleSceneTime * 0.12 + s.progress * 3) * 10;
+        const midX = (s.x1 + currentX) / 2;
+        const midY = (s.y1 + currentY) / 2 + wobble;
+        // Outer glow beam (curved)
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.quadraticCurveTo(midX, midY, currentX, currentY);
+        combatCtx.strokeStyle = s.color;
+        combatCtx.lineWidth = s.size * 2.5;
+        combatCtx.shadowBlur = 30;
+        combatCtx.shadowColor = s.color;
+        combatCtx.stroke();
+        // Core bright beam
+        combatCtx.beginPath();
+        combatCtx.moveTo(s.x1, s.y1);
+        combatCtx.quadraticCurveTo(midX, midY, currentX, currentY);
+        combatCtx.strokeStyle = "rgba(180, 255, 180, 0.7)";
+        combatCtx.lineWidth = s.size * 0.8;
+        combatCtx.shadowBlur = 15;
+        combatCtx.shadowColor = "rgba(180, 255, 180, 0.5)";
+        combatCtx.stroke();
+        combatCtx.shadowBlur = 0;
+        // Poison drip particles along beam
+        for (let p = 0; p < 6; p++) {
+          const pp = ((battleSceneTime * 0.03 + p * 0.16) % 1);
+          const px = s.x1 + (s.x2 - s.x1) * pp;
+          const py = s.y1 + (s.y2 - s.y1) * pp + Math.sin(pp * 8) * 6;
+          combatCtx.globalAlpha = 0.5 * (1 - pp);
+          combatCtx.beginPath();
+          combatCtx.arc(px, py, s.size * 0.3, 0, Math.PI * 2);
+          combatCtx.fillStyle = "rgba(100, 255, 100, 0.8)";
+          combatCtx.shadowBlur = 10;
+          combatCtx.shadowColor = "rgba(100, 255, 100, 0.8)";
+          combatCtx.fill();
+        }
+        combatCtx.globalAlpha = 1;
+        combatCtx.shadowBlur = 0;
+        // Tip orb
+        combatCtx.beginPath();
+        const tipGrad = combatCtx.createRadialGradient(currentX, currentY, 0, currentX, currentY, s.size * 1.2);
+        tipGrad.addColorStop(0, "rgba(180, 255, 180, 1)");
+        tipGrad.addColorStop(0.5, s.color);
+        tipGrad.addColorStop(1, "transparent");
+        combatCtx.fillStyle = tipGrad;
+        combatCtx.shadowBlur = 20;
+        combatCtx.shadowColor = s.color;
+        combatCtx.arc(currentX, currentY, s.size * 1.2, 0, Math.PI * 2);
+        combatCtx.fill();
+        combatCtx.shadowBlur = 0;
+        // Impact burst
+        if (s.progress >= 0.90 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 18; b++) {
+            const angle = (b / 18) * Math.PI * 2;
+            const spd = Math.random() * 2.5 + 1;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 55,
+              y2: currentY + Math.sin(angle) * 55,
+              progress: 0, speed: 0.08,
+              size: Math.random() * 2.5 + 1,
+              color: Math.random() > 0.5 ? s.color : "rgba(100,255,100,0.8)",
+              isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.type === "boss_lightning") {
+        // Boss: หมัดอัสนี - fast electric orb with spark trail
+        // Spark trail
+        for (let t = 1; t <= 6; t++) {
+          const tp = Math.max(0, s.progress - t * 0.015);
+          const tx = s.x1 + (s.x2 - s.x1) * tp;
+          const ty = s.y1 + (s.y2 - s.y1) * tp;
+          combatCtx.globalAlpha = (1 - t / 7) * 0.6;
+          combatCtx.fillStyle = "#ffee88";
+          combatCtx.shadowBlur = 12;
+          combatCtx.shadowColor = s.color;
+          combatCtx.beginPath();
+          combatCtx.arc(tx + (Math.random() - 0.5) * 6, ty + (Math.random() - 0.5) * 6, Math.max(0.5, s.size * (1 - t / 8)), 0, Math.PI * 2);
+          combatCtx.fill();
+        }
+        combatCtx.globalAlpha = 1;
+        // Main orb
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size, 0, Math.PI * 2);
+        combatCtx.fillStyle = "#ffee88";
+        combatCtx.shadowBlur = 30;
+        combatCtx.shadowColor = s.color;
+        combatCtx.fill();
+        combatCtx.beginPath();
+        combatCtx.arc(currentX, currentY, s.size * 0.4, 0, Math.PI * 2);
+        combatCtx.fillStyle = "white";
+        combatCtx.shadowBlur = 10;
+        combatCtx.shadowColor = "white";
+        combatCtx.fill();
+        combatCtx.shadowBlur = 0;
+        // Impact burst
+        if (s.progress >= 0.88 && !s._burst) {
+          s._burst = true;
+          for (let b = 0; b < 12; b++) {
+            const angle = (b / 12) * Math.PI * 2 + Math.random() * 0.3;
+            const spd = Math.random() * 3 + 1.5;
+            spellsList.push({
+              x1: currentX, y1: currentY,
+              x2: currentX + Math.cos(angle) * 50,
+              y2: currentY + Math.sin(angle) * 50,
+              progress: 0, speed: 0.1,
+              size: Math.random() * 2 + 1,
+              color: "#ffee88", isBurst: true, onHit: null
+            });
+          }
+        }
+      } else if (s.isShield) {
         const radius = s.progress * 80;
         combatCtx.beginPath();
         combatCtx.arc(currentX, currentY, radius, 0, Math.PI * 2);
@@ -1315,36 +1595,92 @@ function startCombatCanvasLoop() {
         }
         combatCtx.globalAlpha = 1;
         
-        // Main orb
-        combatCtx.beginPath();
-        combatCtx.arc(currentX, currentY, s.size, 0, Math.PI * 2);
-        combatCtx.fillStyle = s.color;
-        combatCtx.shadowBlur = 30;
-        combatCtx.shadowColor = s.color;
-        combatCtx.fill();
-        // Bright white core
-        combatCtx.beginPath();
-        combatCtx.arc(currentX, currentY, s.size * 0.4, 0, Math.PI * 2);
-        combatCtx.fillStyle = "rgba(255,255,255,0.95)";
-        combatCtx.shadowBlur = 10;
-        combatCtx.shadowColor = "white";
-        combatCtx.fill();
-        combatCtx.shadowBlur = 0;
-        
-        // Impact burst particles
-        if (s.progress >= 0.88 && !s._burst) {
-          s._burst = true;
-          for (let b = 0; b < 14; b++) {
-            const angle = (b / 14) * Math.PI * 2;
-            const spd = Math.random() * 2.5 + 1;
-            spellsList.push({
-              x1: currentX, y1: currentY,
-              x2: currentX + Math.cos(angle) * 55,
-              y2: currentY + Math.sin(angle) * 55,
-              progress: 0, speed: 0.09,
-              size: Math.random() * 3 + 1,
-              color: s.color, isBurst: true, onHit: null
-            });
+        // --- Quantum storm: spiral offset rendering ---
+        if (s.type === "quantum") {
+          const spiralAngle = s.progress * Math.PI * 4 + (s.quantumIdx || 0) * 2.1;
+          const spiralRadius = 10 * (1 - s.progress);
+          const spiralX = currentX + Math.cos(spiralAngle) * spiralRadius;
+          const spiralY = currentY + Math.sin(spiralAngle) * spiralRadius;
+          
+          // Main orb at spiral position
+          combatCtx.beginPath();
+          combatCtx.arc(spiralX, spiralY, s.size, 0, Math.PI * 2);
+          combatCtx.fillStyle = s.color;
+          combatCtx.shadowBlur = 25;
+          combatCtx.shadowColor = s.color;
+          combatCtx.fill();
+          combatCtx.beginPath();
+          combatCtx.arc(spiralX, spiralY, s.size * 0.4, 0, Math.PI * 2);
+          combatCtx.fillStyle = "rgba(255,255,255,0.9)";
+          combatCtx.shadowBlur = 10;
+          combatCtx.shadowColor = "white";
+          combatCtx.fill();
+          combatCtx.shadowBlur = 0;
+          
+          // Impact burst
+          if (s.progress >= 0.90 && !s._burst) {
+            s._burst = true;
+            for (let b = 0; b < 10; b++) {
+              const angle = (b / 10) * Math.PI * 2 + (s.quantumIdx || 0) * 1.5;
+              const spd = Math.random() * 2 + 1;
+              spellsList.push({
+                x1: spiralX, y1: spiralY,
+                x2: spiralX + Math.cos(angle) * 50,
+                y2: spiralY + Math.sin(angle) * 50,
+                progress: 0, speed: 0.08,
+                size: Math.random() * 2.5 + 1,
+                color: s.color, isBurst: true, onHit: null
+              });
+            }
+          }
+        } else {
+          // Default orb (also handles EMP orb before burst)
+          // Main orb
+          combatCtx.beginPath();
+          combatCtx.arc(currentX, currentY, s.size, 0, Math.PI * 2);
+          combatCtx.fillStyle = s.color;
+          combatCtx.shadowBlur = 30;
+          combatCtx.shadowColor = s.color;
+          combatCtx.fill();
+          // Bright white core
+          combatCtx.beginPath();
+          combatCtx.arc(currentX, currentY, s.size * 0.4, 0, Math.PI * 2);
+          combatCtx.fillStyle = "rgba(255,255,255,0.95)";
+          combatCtx.shadowBlur = 10;
+          combatCtx.shadowColor = "white";
+          combatCtx.fill();
+          combatCtx.shadowBlur = 0;
+          
+          // Impact burst particles
+          if (s.progress >= 0.88 && !s._burst) {
+            s._burst = true;
+            const burstCount = s.type === "emp" ? 20 : 14;
+            for (let b = 0; b < burstCount; b++) {
+              const angle = (b / burstCount) * Math.PI * 2;
+              const spd = Math.random() * 2.5 + 1;
+              spellsList.push({
+                x1: currentX, y1: currentY,
+                x2: currentX + Math.cos(angle) * 55,
+                y2: currentY + Math.sin(angle) * 55,
+                progress: 0, speed: 0.09,
+                size: Math.random() * 3 + 1,
+                color: s.color, isBurst: true, onHit: null
+              });
+            }
+            // EMP gets extra ring wave
+            if (s.type === "emp") {
+              spellsList.push({
+                x1: currentX, y1: currentY,
+                x2: currentX, y2: currentY,
+                progress: 0,
+                speed: 0.03,
+                size: 5,
+                color: s.color,
+                type: "emp_ring",
+                isBurst: false,
+                onHit: null
+              });
+            }
           }
         }
       } else {
@@ -1379,8 +1715,8 @@ function stopCombatCanvasLoop() {
   combatCanvas = null;
 }
 
-// ยิงแสงกระสุนโจมตี
-function shootCombatProjectile(isPlayerAttacking, color, onHitCallback) {
+// ยิงแสงกระสุนโจมตี (พร้อมเอฟเฟกต์เฉพาะแต่ละท่า)
+function shootCombatProjectile(isPlayerAttacking, color, onHitCallback, moveKey) {
   if (!combatCanvas) {
     if (onHitCallback) onHitCallback();
     return;
@@ -1404,16 +1740,116 @@ function shootCombatProjectile(isPlayerAttacking, color, onHitCallback) {
     ? (activeMove.difficulty === 'hard' ? 16 : activeMove.difficulty === 'medium' ? 12 : 9)
     : 10;
 
-  spellsList.push({
-    x1: startX, y1: startY,
-    x2: endX, y2: endY,
-    progress: 0,
-    speed: 0.035,
-    size: projSize,
-    color: color,
-    isBurst: false,
-    onHit: onHitCallback
-  });
+  // --- Per-skill visual effects ---
+  if (isPlayerAttacking && moveKey === "laser") {
+    // Laser Bolt: fast thin beam (beam line drawn in render loop)
+    spellsList.push({
+      x1: startX, y1: startY,
+      x2: endX, y2: endY,
+      progress: 0,
+      speed: 0.08,
+      size: projSize,
+      color: color,
+      type: "laser",
+      isBurst: false,
+      onHit: onHitCallback
+    });
+  } else if (isPlayerAttacking && moveKey === "emp") {
+    // EMP Blast: orb that creates a massive expanding ring on impact
+    spellsList.push({
+      x1: startX, y1: startY,
+      x2: endX, y2: endY,
+      progress: 0,
+      speed: 0.04,
+      size: projSize,
+      color: color,
+      type: "emp",
+      isBurst: false,
+      onHit: onHitCallback
+    });
+  } else if (isPlayerAttacking && moveKey === "quantum") {
+    // Quantum Storm: 3 swirling projectile orbs with staggered offsets
+    const offsets = [
+      { dx: -12, dy: -15 },
+      { dx: 0, dy: 10 },
+      { dx: 12, dy: -10 }
+    ];
+    offsets.forEach((off, idx) => {
+      spellsList.push({
+        x1: startX + off.dx, y1: startY + off.dy,
+        x2: endX, y2: endY,
+        progress: 0,
+        speed: 0.035 + idx * 0.008,
+        size: projSize * 0.65,
+        color: color,
+        type: "quantum",
+        quantumIdx: idx,
+        isBurst: false,
+        onHit: idx === 2 ? onHitCallback : null  // last one triggers callback
+      });
+    });
+  } else if (!isPlayerAttacking && moveKey === "shockwave") {
+    // Boss: คลื่นกระแทก - orb with pulsing shockwave rings
+    spellsList.push({
+      x1: startX, y1: startY,
+      x2: endX, y2: endY,
+      progress: 0,
+      speed: 0.035,
+      size: projSize,
+      color: color,
+      type: "boss_shockwave",
+      isBurst: false,
+      onHit: onHitCallback
+    });
+  } else if (!isPlayerAttacking && moveKey === "poison_beam") {
+    // Boss: ลำแสงพิษ - wavy beam with poison trail
+    spellsList.push({
+      x1: startX, y1: startY,
+      x2: endX, y2: endY,
+      progress: 0,
+      speed: 0.04,
+      size: projSize,
+      color: color,
+      type: "boss_poison",
+      isBurst: false,
+      onHit: onHitCallback
+    });
+  } else if (!isPlayerAttacking && moveKey === "lightning") {
+    // Boss: หมัดอัสนี - 3 fast yellow orbs in a fan spread
+    const fanAngles = [-0.12, 0, 0.12];
+    const dx = endX - startX;
+    const dy = endY - startY;
+    fanAngles.forEach((angle, idx) => {
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const rotatedEndX = startX + (dx * cosA - dy * sinA);
+      const rotatedEndY = startY + (dx * sinA + dy * cosA);
+      spellsList.push({
+        x1: startX, y1: startY,
+        x2: rotatedEndX, y2: rotatedEndY,
+        progress: 0,
+        speed: 0.05 + idx * 0.01,
+        size: projSize * 0.7,
+        color: color,
+        type: "boss_lightning",
+        lightningIdx: idx,
+        isBurst: false,
+        onHit: idx === 2 ? onHitCallback : null
+      });
+    });
+  } else {
+    // Default generic orb projectile (nanobot, fallback)
+    spellsList.push({
+      x1: startX, y1: startY,
+      x2: endX, y2: endY,
+      progress: 0,
+      speed: 0.035,
+      size: projSize,
+      color: color,
+      isBurst: false,
+      onHit: onHitCallback
+    });
+  }
 }
 
 // ปล่อยเกราะฟื้นฟูสีเขียวขยาย
@@ -1454,6 +1890,21 @@ function triggerDamageEffect(isAttackingBoss, dmg) {
       popup.className = `damage-number damage-pop-active damage-green`; 
     } else {
       popup.classList.add("damage-red"); 
+    }
+    
+    // ---- RED SCREEN FLASH overlay when hero takes damage ----
+    const arena = document.querySelector(".rpg-battle-window .battle-arena");
+    if (arena) {
+      // Remove any existing flash overlay first
+      const oldFlash = arena.querySelector(".damage-flash-overlay");
+      if (oldFlash) oldFlash.remove();
+      
+      const flashEl = document.createElement("div");
+      flashEl.className = "damage-flash-overlay";
+      arena.appendChild(flashEl);
+      setTimeout(() => {
+        if (flashEl.parentNode) flashEl.parentNode.removeChild(flashEl);
+      }, 700);
     }
   }
   
@@ -1901,9 +2352,9 @@ function handleTeacherForceSubmit() {
 // 4c. ท่าโจมตีของบอส (สุ่มใช้แต่ละเทิร์น)
 // ==========================================================================
 const BOSS_MOVES = [
-  { name: "คลื่นกระแทก", dmg: 15, acc: 0.95, color: "#ff8844", desc: "พลังโจมตี 15 | แม่นยำ 95%" },
-  { name: "ลำแสงพิษ", dmg: 25, acc: 0.80, color: "#cc44ff", desc: "พลังโจมตี 25 | แม่นยำ 80%" },
-  { name: "หมัดอัสนี", dmg: 35, acc: 0.60, color: "#ffcc00", desc: "พลังโจมตี 35 | แม่นยำ 60%" },
+  { name: "คลื่นกระแทก", dmg: 15, acc: 0.95, color: "#ff8844", desc: "พลังโจมตี 15 | แม่นยำ 95%", effect: "shockwave" },
+  { name: "ลำแสงพิษ", dmg: 25, acc: 0.80, color: "#cc44ff", desc: "พลังโจมตี 25 | แม่นยำ 80%", effect: "poison_beam" },
+  { name: "หมัดอัสนี", dmg: 35, acc: 0.60, color: "#ffcc00", desc: "พลังโจมตี 35 | แม่นยำ 60%", effect: "lightning" },
   { name: "ดูดพลัง", dmg: 0, healPct: 0.15, acc: 1.0, color: "#ff44aa", desc: "ดูดพลัง 15% HP บอส" }
 ];
 
@@ -1972,7 +2423,7 @@ function executeBossAttack() {
       }
       
       updateBattleHPBars();
-    });
+    }, bossMove.effect);
     
     addShipLog(`💥 บอสใช้ "${bossMove.name}" โจมตีใส่ปาร์ตี้ -${actualDmg} HP! (${Math.round(bossMove.acc * 100)}%)`, "alert");
     App.showToast(`💥 บอสใช้ ${bossMove.name} -${actualDmg} HP`);
